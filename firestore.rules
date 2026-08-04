@@ -1,0 +1,122 @@
+rules_version = '2';
+
+// IoTify Lab — Workshop Registration System
+//
+// Deploy with:  firebase deploy --only firestore:rules
+//
+// Model:
+//   - The public may READ published workshops and announcements, and CREATE
+//     their own registration. They may never read registrations (student PII).
+//   - Admins are identified by a document at /admins/{uid}. Role is stored on
+//     that document; the rules below derive permissions from it.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function adminDoc() {
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function hasRole(roles) {
+      return isAdmin() && (adminDoc().role in roles);
+    }
+
+    function isSuperAdmin() {
+      return hasRole(['Super Admin']);
+    }
+
+    // Roles allowed to create/edit workshops & announcements.
+    function canManageContent() {
+      return hasRole(['Super Admin', 'Faculty', 'Coordinator']);
+    }
+
+    // Roles allowed to approve/reject registrations.
+    function canManageRegistrations() {
+      return hasRole(['Super Admin', 'Faculty', 'Coordinator']);
+    }
+
+    // ── admins ───────────────────────────────────────────────
+    // A signed-in user may read *their own* admin doc (that is how the app
+    // discovers its role). Only a Super Admin may list or modify admins.
+    match /admins/{uid} {
+      allow get: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ── workshops ────────────────────────────────────────────
+    // Anyone may read Published / Closed workshops (needed by the booking
+    // form). Drafts are admin-only. Writes are admin-only.
+    match /workshops/{id} {
+      allow read: if isAdmin() || (resource.data.status in ['Published', 'Closed']);
+      allow create, update, delete: if canManageContent();
+    }
+
+    // ── registrations ────────────────────────────────────────
+    // Public create with validation; no public read at all.
+    match /registrations/{id} {
+      allow read: if isAdmin();
+
+      allow create: if
+        request.resource.data.keys().hasAll([
+          'name', 'enrollment', 'email', 'phone',
+          'department', 'year', 'workshopId', 'workshopTitle',
+          'status', 'createdAt'
+        ])
+        && request.resource.data.status == 'Pending'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 1
+        && request.resource.data.name.size() < 120
+        && request.resource.data.email is string
+        && request.resource.data.email.matches('^[^@]+@[^@]+\\.[^@]+$')
+        && request.resource.data.enrollment is string
+        && request.resource.data.enrollment.size() > 0
+        && request.resource.data.enrollment.size() < 60
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 10
+        && request.resource.data.phone.size() <= 15
+        && request.resource.data.workshopId is string
+        // Only into a workshop that is actually open for registration.
+        && get(/databases/$(database)/documents/workshops/$(request.resource.data.workshopId))
+             .data.status == 'Published';
+
+      allow update, delete: if canManageRegistrations();
+    }
+
+    // ── announcements ────────────────────────────────────────
+    match /announcements/{id} {
+      allow read: if isAdmin() || resource.data.published == true;
+      allow create, update, delete: if canManageContent();
+    }
+
+    // ── settings ─────────────────────────────────────────────
+    // Lab name / contact details are shown publicly; only admins write.
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // ── activityLogs ─────────────────────────────────────────
+    // Append-only audit trail. Admins write their own entries; nobody edits.
+    match /activityLogs/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.actorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Everything else is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
