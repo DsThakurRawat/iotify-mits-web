@@ -8,41 +8,49 @@ const PROGRAMS = [
     icon: Wifi,
     title: "IoT Lab Setup",
     desc: "Establishing hands-on IoT & sensor learning facilities in schools and colleges using specialized in-house CIoT kits.",
+    target: "iotkit",
   },
   {
     icon: BrainCircuit,
     title: "AI & Robotics Workshops",
     desc: "Interactive training sessions on edge AI models, computer vision, and ROS2 autonomous mobile robotics.",
+    target: "iotkit",
   },
   {
     icon: Cpu,
     title: "Embedded Systems Training",
     desc: "Microcontroller firmware programming, RTOS, sensor telemetry, and hardware circuit debugging.",
+    target: "iotkit",
   },
   {
     icon: GraduationCap,
     title: "Teacher Training (ToT)",
     desc: "Capacity-building Train-the-Teacher workshops empowering school educators to lead STEM clubs.",
+    target: "iotkit",
   },
   {
     icon: Lightbulb,
     title: "In-House IoT Learning Kits",
     desc: "Custom hardware kits developed by CIoT MITS for experiential, project-based STEM education.",
+    target: "iotkit",
   },
   {
     icon: Users,
     title: "STEM & Innovation Clubs",
     desc: "Supporting the establishment of school technology clubs and continuous innovation facilities.",
+    target: "iotkit",
   },
   {
     icon: Trophy,
     title: "Student Project Mentoring",
     desc: "Guiding technology-based solutions to real-life problems, tech camps, and innovation challenges.",
+    target: "iotkit",
   },
   {
     icon: BookOpen,
     title: "Internship & Research Support",
     desc: "Providing undergraduate & school student research mentorship under CIoT at MITS Gwalior.",
+    target: "iotkit",
   },
 ];
 
@@ -101,7 +109,7 @@ export default function ProgramsGrid({ onNavigate }) {
                   hidden: { opacity: 0, y: 30 },
                   show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
                 }}
-                onClick={() => onNavigate && onNavigate("projects")}
+                onClick={() => onNavigate && onNavigate(prog.target)}
                 className="glass-card spotlight-card shimmer-card group p-6 rounded-3xl border border-white/[0.09] bg-white/[0.03] cursor-pointer relative overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:border-cyan-primary/50 hover:shadow-[0_15px_40px_-10px_rgba(0,207,255,0.25)] flex flex-col justify-between"
               >
                 <div>

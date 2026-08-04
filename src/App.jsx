@@ -141,11 +141,6 @@ function Loader({ onComplete, onNavigateHome }) {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="flex flex-col items-center gap-5 mt-4"
             >
-              <img
-                src={logo}
-                alt="IoTify Logo"
-                className="w-12 h-12 object-contain drop-shadow-[0_0_15px_rgba(0,184,255,0.45)]"
-              />
 
               {/* Enhanced Interactive MITS - DU School C Program Button */}
               <motion.button
@@ -174,12 +169,6 @@ function Loader({ onComplete, onNavigateHome }) {
                 <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent scale-x-50 group-hover:scale-x-100 transition-transform duration-500" />
               </motion.button>
 
-              <div>
-                <h1 className="font-display font-bold text-lg tracking-[0.1em] text-white">
-                  IoTify Lab
-                </h1>
-                <div className="h-[1.5px] w-8 bg-gradient-to-r from-transparent via-cyan-signal to-transparent mx-auto mt-1" />
-              </div>
             </motion.div>
 
             <div className="flex-1" />

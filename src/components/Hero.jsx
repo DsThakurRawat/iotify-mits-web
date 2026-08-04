@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState, useRef } from "react";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import { ArrowRight, ChevronDown, Cpu, Zap, Eye, Radio } from "lucide-react";
 import NeuralNetSVG from "./shared/NeuralNetSVG";
 import jetson from "../assets/images/jetson.png";
@@ -35,11 +35,31 @@ function TypewriterText() {
   );
 }
 
-const floatingCards = [
- 
-];
+const floatingCards = [];
 
 export default function Hero({ onNavigate }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const containerRef = useRef(null);
+
+  // Mouse coordinates for gentle interactive tilt & pan effect
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  // Subtle rotation and pan values based on cursor position
+  const rotateX = useTransform(mouseY, [-200, 200], [8, -8]);
+  const rotateY = useTransform(mouseX, [-200, 200], [-8, 8]);
+  const translateX = useTransform(mouseX, [-200, 200], [-12, 12]);
+  const translateY = useTransform(mouseY, [-200, 200], [-12, 12]);
+
+  const handleMouseMove = (e) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    mouseX.set(e.clientX - centerX);
+    mouseY.set(e.clientY - centerY);
+  };
+
   const stagger = {
     container: { hidden: {}, show: { transition: { staggerChildren: 0.12 } } },
     item: {
@@ -60,9 +80,6 @@ export default function Hero({ onNavigate }) {
           animate="show"
           className="flex flex-col items-start"
         >
-          {/* Badge */}
-
-
           {/* Heading */}
           <motion.h1
             variants={stagger.item}
@@ -70,7 +87,6 @@ export default function Hero({ onNavigate }) {
           >
             <br className="hidden lg:block" />
             Future of{" "}
-
             <TypewriterText />
           </motion.h1>
 
@@ -130,13 +146,20 @@ export default function Hero({ onNavigate }) {
 
         {/* ── RIGHT COLUMN ── */}
         <motion.div
+          ref={containerRef}
+          onMouseMove={handleMouseMove}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => {
+            setIsHovered(false);
+            mouseX.set(0);
+            mouseY.set(0);
+          }}
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 1, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
-          whileTap={{ scale: 1 }}
-          className="relative flex items-center justify-center"
+          className="relative flex items-center justify-center cursor-pointer"
         >
-          {/* Teal radial glow behind board — matches reference image */}
+          {/* Teal radial glow behind board */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
@@ -163,59 +186,33 @@ export default function Hero({ onNavigate }) {
             />
           ))}
 
-          {/* Floating data cards */}
-          {floatingCards.map((card, i) => {
-            const Icon = card.icon;
-            return (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.8 + i * 0.2, duration: 0.5 }}
-                className={`absolute ${card.pos} z-20`}
-              >
-                <div
-                  className="animate-float glass-card px-4 py-3 flex items-center gap-3 min-w-[160px]"
-                  style={{ animationDelay: card.delay, borderRadius: "16px" }}
-                >
-                  <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-cyan-primary/10 border border-cyan-primary/20 text-cyan-primary flex-shrink-0">
-                    <Icon size={16} />
-                  </span>
-                  <div>
-                    <div className="text-[10px] text-muted font-display tracking-widest uppercase">{card.label}</div>
-                    <div className="text-xs font-semibold text-white font-display">{card.value}</div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-
-          {/* Main Jetson image — smooth float, locked on tap */}
+          {/* Interactive Jetson image with cursor-follow tilt and scale */}
           <motion.div
-            className="relative w-full max-w-[480px] cursor-pointer"
-            animate={{ y: [0, -16, 0] }}
-            transition={{
-              y: { duration: 6, repeat: Infinity, ease: "easeInOut" },
-              default: { type: "spring", stiffness: 200, damping: 25 }
+            className="relative w-full max-w-[480px]"
+            animate={
+              isHovered
+                ? { y: 0, scale: 1.12 }
+                : { y: [0, -16, 0], scale: 1 }
+            }
+            transition={
+              isHovered
+                ? { duration: 0.3, ease: "easeOut" }
+                : { y: { duration: 6, repeat: Infinity, ease: "easeInOut" }, scale: { duration: 0.3 } }
+            }
+            style={{
+              rotateX,
+              rotateY,
+              x: translateX,
+              y: translateY,
+              transformStyle: "preserve-3d",
+              willChange: "transform",
             }}
-            whileHover="hover"
-            style={{ willChange: "transform" }}
           >
             <motion.img
               src={jetson}
               alt="NVIDIA Jetson embedded AI platform"
               className="w-full h-auto object-contain drop-shadow-[0_40px_80px_rgba(0,207,255,0.3)]"
               draggable="false"
-              variants={{
-                hover: {
-                  scale: 0.88,
-                  skewX: -8,
-                  rotateY: 15,
-                  rotateX: -10,
-                  filter: "brightness(1.2) drop-shadow(0px 30px 60px rgba(0,207,255,0.6))",
-                }
-              }}
-              transition={{ type: "spring", stiffness: 200, damping: 25 }}
               style={{
                 mixBlendMode: "screen",
                 WebkitTouchCallout: "none",
@@ -227,16 +224,16 @@ export default function Hero({ onNavigate }) {
             {/* Glow beneath */}
             <motion.div
               className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-[55%] h-10 bg-cyan-primary/25 blur-3xl rounded-full"
-              variants={{
-                hover: {
-                  scale: 1.25,
-                  opacity: 0.95,
-                  backgroundColor: "rgba(0, 207, 255, 0.45)",
-                }
-              }}
-              transition={{ type: "spring", stiffness: 200, damping: 25 }}
+              animate={{ scale: isHovered ? 1.2 : 1, opacity: isHovered ? 0.8 : 0.5 }}
             />
           </motion.div>
+
+          {/* Instruction hint banner */}
+          <div className="absolute top-2 right-2 z-30 px-3 py-1 rounded-full bg-black/60 border border-cyan-primary/30 backdrop-blur-md pointer-events-none">
+            <span className="text-[10px] font-mono text-cyan-primary">
+              Hover & Move Cursor to Inspect
+            </span>
+          </div>
 
           {/* Neural net overlay (subtle, bottom) */}
           <div className="absolute bottom-0 left-0 right-0 h-48 opacity-20 pointer-events-none">
