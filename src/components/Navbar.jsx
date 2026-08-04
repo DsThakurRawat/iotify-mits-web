@@ -10,9 +10,9 @@ const NAV_LINKS = [
   { label: "Modules", page: "projects" },
   { label: "AboutIoT", page: "Iot" },
   { label: "Gallery", page: "gallery" },
-  { label: "Book a Workshop", page: "Book" },
+  { label: "Book a Workshop", page: "book" },
   { label: "developer", page: "developer" },
-  { label: "Admin Login", page: "contact" },
+  { label: "Admin Login", page: "admin-login" },
 ];
 
 export default function Navbar({ currentPage, onNavigate }) {

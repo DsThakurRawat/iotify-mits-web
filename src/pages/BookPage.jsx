@@ -1,46 +1,244 @@
-import React, { useState } from "react";
-import { Sparkles, ShieldCheck, Ticket, ArrowRight, MessageSquare } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Sparkles,
+  ShieldCheck,
+  Ticket,
+  ArrowRight,
+  MessageSquare,
+  CheckCircle2,
+  Loader2,
+  CalendarX,
+} from "lucide-react";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
+import { db, isFirebaseConfigured, serverTimestamp } from "../lib/firebase";
+import AnnouncementsBanner from "../components/AnnouncementsBanner";
 
-export default function WorkshopEnrolment() {
-  const [formData, setFormData] = useState({
-    studentName: "",
-    rollNo: "",
-    email: "",
-    mobile: "",
-    gender: "Male",
-    department: "",
-    year: "",
-    semester: "",
-    collegeName: "",
-    workshopName: "",
-    couponCode: ""
-  });
+const EMPTY_FORM = {
+  studentName: "",
+  rollNo: "",
+  email: "",
+  mobile: "",
+  gender: "Male",
+  department: "",
+  year: "",
+  semester: "",
+  collegeName: "",
+  workshopId: "",
+  couponCode: "",
+};
 
-  const [appliedCoupon, setAppliedCoupon] = useState(false);
-  const [totalPayable, setTotalPayable] = useState(1200);
+const inputClass =
+  "w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all";
+
+const selectClass = `${inputClass} appearance-none cursor-pointer`;
+
+/** A registration deadline of "2026-08-20" is inclusive of that whole day. */
+function isDeadlinePassed(deadline) {
+  if (!deadline) return false;
+  const end = new Date(`${deadline}T23:59:59`);
+  if (Number.isNaN(end.getTime())) return false;
+  return end.getTime() < Date.now();
+}
+
+export default function WorkshopEnrolment({ onNavigate }) {
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [workshops, setWorkshops] = useState([]);
+  const [loadingWorkshops, setLoadingWorkshops] = useState(true);
+  const [workshopsError, setWorkshopsError] = useState(null);
+
+  const [coupons, setCoupons] = useState({}); // { CODE: percentOff }
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // { code, percentOff }
+  const [couponError, setCouponError] = useState("");
+
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [successRef, setSuccessRef] = useState(null);
+
+  // ── Live list of workshops open for registration ──────────────
+  useEffect(() => {
+    if (!isFirebaseConfigured) {
+      setLoadingWorkshops(false);
+      setWorkshopsError("Registrations are temporarily unavailable.");
+      return;
+    }
+    const q = query(collection(db, "workshops"), where("status", "==", "Published"));
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+        setWorkshops(list);
+        setLoadingWorkshops(false);
+        setWorkshopsError(null);
+      },
+      (error) => {
+        console.error("Failed to load workshops", error);
+        setWorkshopsError("Could not load workshops. Please try again shortly.");
+        setLoadingWorkshops(false);
+      }
+    );
+    return unsubscribe;
+  }, []);
+
+  // ── Coupon codes, managed by admins under Settings → Booking ──
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    getDoc(doc(db, "settings", "booking"))
+      .then((snap) => {
+        if (snap.exists()) setCoupons(snap.data().coupons || {});
+      })
+      .catch(() => setCoupons({}));
+  }, []);
+
+  const selectedWorkshop = useMemo(
+    () => workshops.find((w) => w.id === formData.workshopId) || null,
+    [workshops, formData.workshopId]
+  );
+
+  const baseFee = Number(selectedWorkshop?.fee ?? 0);
+  const discount = appliedCoupon
+    ? Math.round((baseFee * appliedCoupon.percentOff) / 100)
+    : 0;
+  const totalPayable = Math.max(0, baseFee - discount);
+
+  const deadlinePassed = isDeadlinePassed(selectedWorkshop?.deadline);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setSubmitError("");
   };
 
   const handleApplyCoupon = (e) => {
     e.preventDefault();
-    if (formData.couponCode.trim()) {
-      setAppliedCoupon(true);
+    const code = formData.couponCode.trim().toUpperCase();
+    if (!code) return;
+
+    const percentOff = Number(coupons[code]);
+    if (!percentOff || percentOff <= 0) {
+      setAppliedCoupon(null);
+      setCouponError("That coupon code isn't valid.");
+      return;
+    }
+    setAppliedCoupon({ code, percentOff });
+    setCouponError("");
+  };
+
+  const validate = () => {
+    if (!formData.workshopId) return "Please choose a workshop.";
+    if (!selectedWorkshop) return "That workshop is no longer available.";
+    if (deadlinePassed) return "Registration for this workshop has closed.";
+    if (!/^\d{10,15}$/.test(formData.mobile.replace(/\D/g, "")))
+      return "Enter a valid mobile number.";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email))
+      return "Enter a valid email address.";
+    return null;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError("");
+
+    const problem = validate();
+    if (problem) {
+      setSubmitError(problem);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Field names here MUST match what the admin portal reads.
+      const payload = {
+        name: formData.studentName.trim(),
+        enrollment: formData.rollNo.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.mobile.replace(/\D/g, ""),
+        gender: formData.gender,
+        department: formData.department.trim(),
+        year: formData.year,
+        semester: formData.semester,
+        collegeName: formData.collegeName.trim(),
+        workshopId: selectedWorkshop.id,
+        workshopTitle: selectedWorkshop.title || "",
+        couponCode: appliedCoupon?.code || "",
+        amount: totalPayable,
+        status: "Pending",
+        createdAt: serverTimestamp(),
+      };
+
+      const ref = await addDoc(collection(db, "registrations"), payload);
+      setSuccessRef({ id: ref.id, workshop: selectedWorkshop.title });
+      setFormData(EMPTY_FORM);
+      setAppliedCoupon(null);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      console.error("Registration failed", error);
+      setSubmitError(
+        error?.code === "permission-denied"
+          ? "Registration is closed for this workshop."
+          : "Something went wrong while saving your registration. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    alert(`Registration Initiated for ${formData.studentName || "Student"}!`);
-  };
+  // ── Success screen ────────────────────────────────────────────
+  if (successRef) {
+    return (
+      <div className="w-full text-slate-100 font-sans relative">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12 mt-24">
+          <div className="border border-cyan-500/20 rounded-3xl p-8 sm:p-12 backdrop-blur-2xl text-center">
+            <div className="w-16 h-16 rounded-full border border-cyan-500/40 flex items-center justify-center mx-auto mb-6 text-cyan-400">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">
+              Registration received
+            </h1>
+            <p className="text-slate-400 text-sm sm:text-base mb-6 leading-relaxed">
+              Your seat request for{" "}
+              <span className="text-cyan-400 font-semibold">{successRef.workshop}</span>{" "}
+              has been submitted. Our team will review it and email you once it is
+              approved.
+            </p>
+            <div className="inline-block px-4 py-2 rounded-xl border border-slate-800 mb-8">
+              <span className="block text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+                Reference ID
+              </span>
+              <span className="font-mono text-sm text-white">{successRef.id}</span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => setSuccessRef(null)}
+                className="px-6 py-3 rounded-xl border border-cyan-500/30 hover:border-cyan-400 text-white text-sm font-bold transition-all"
+              >
+                Register someone else
+              </button>
+              <button
+                onClick={() => onNavigate?.("home")}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 text-sm font-black transition-all hover:scale-[1.02]"
+              >
+                Back to home
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full text-slate-100 font-sans relative selection:bg-cyan-500 selection:text-black">
-      
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
-        
         {/* ===== HEADER ===== */}
         <header className="mb-10 mt-24">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase text-cyan-400 px-3 py-1 rounded-full border border-cyan-500/30 backdrop-blur-md">
@@ -53,13 +251,19 @@ export default function WorkshopEnrolment() {
             </span>
           </h1>
           <p className="text-slate-400 mt-3 text-sm sm:text-base font-normal max-w-xl">
-            A clear, secure registration experience for IoTily Lab hands-on programs and workshops.
+            A clear, secure registration experience for IoTily Lab hands-on programs and
+            workshops.
           </p>
         </header>
 
+        {/* Live notices posted from the admin portal */}
+        <AnnouncementsBanner />
+
         {/* ===== MAIN FORM CONTAINER ===== */}
-        <form onSubmit={handleSubmit} className="space-y-8 border border-cyan-500/20 rounded-3xl p-6 sm:p-10 backdrop-blur-2xl">
-          
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-8 border border-cyan-500/20 rounded-3xl p-6 sm:p-10 backdrop-blur-2xl"
+        >
           {/* SECTION 01: STUDENT DETAILS */}
           <section className="space-y-6">
             <div className="flex items-center gap-3">
@@ -72,7 +276,6 @@ export default function WorkshopEnrolment() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Student Name */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Student name <span className="text-cyan-400">*</span>
@@ -84,11 +287,12 @@ export default function WorkshopEnrolment() {
                   onChange={handleChange}
                   placeholder="e.g. Ananya Sharma"
                   required
-                  className="w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                  minLength={2}
+                  maxLength={100}
+                  className={inputClass}
                 />
               </div>
 
-              {/* Registration / Roll No */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Registration / Roll No. <span className="text-cyan-400">*</span>
@@ -100,11 +304,11 @@ export default function WorkshopEnrolment() {
                   onChange={handleChange}
                   placeholder="e.g. 22CS1048"
                   required
-                  className="w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                  maxLength={50}
+                  className={inputClass}
                 />
               </div>
 
-              {/* Email ID */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Email ID <span className="text-cyan-400">*</span>
@@ -116,11 +320,10 @@ export default function WorkshopEnrolment() {
                   onChange={handleChange}
                   placeholder="ananya@example.com"
                   required
-                  className="w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                  className={inputClass}
                 />
               </div>
 
-              {/* Mobile No */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Mobile No. <span className="text-cyan-400">*</span>
@@ -132,11 +335,12 @@ export default function WorkshopEnrolment() {
                   onChange={handleChange}
                   placeholder="9876543210"
                   required
-                  className="w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                  pattern="[0-9+\-\s]{10,15}"
+                  title="Enter a 10-digit mobile number"
+                  className={inputClass}
                 />
               </div>
 
-              {/* Gender Radio Segment */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Gender <span className="text-cyan-400">*</span>
@@ -146,7 +350,9 @@ export default function WorkshopEnrolment() {
                     <button
                       type="button"
                       key={option}
-                      onClick={() => setFormData((prev) => ({ ...prev, gender: option }))}
+                      onClick={() =>
+                        setFormData((prev) => ({ ...prev, gender: option }))
+                      }
                       className={`py-2 rounded-lg text-xs font-semibold transition-all ${
                         formData.gender === option
                           ? "text-cyan-400 border border-cyan-500/40"
@@ -159,7 +365,6 @@ export default function WorkshopEnrolment() {
                 </div>
               </div>
 
-              {/* Branch / Stream */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Branch / Stream / Department <span className="text-cyan-400">*</span>
@@ -171,11 +376,11 @@ export default function WorkshopEnrolment() {
                   onChange={handleChange}
                   placeholder="e.g. Computer Science Engineering"
                   required
-                  className="w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                  maxLength={100}
+                  className={inputClass}
                 />
               </div>
 
-              {/* Year Select */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Year <span className="text-cyan-400">*</span>
@@ -185,17 +390,19 @@ export default function WorkshopEnrolment() {
                   value={formData.year}
                   onChange={handleChange}
                   required
-                  className="w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all appearance-none cursor-pointer"
+                  className={selectClass}
                 >
-                  <option value="" disabled className="bg-slate-950 text-slate-400">Select year</option>
-                  <option value="1st Year" className="bg-slate-950 text-white">1st Year</option>
-                  <option value="2nd Year" className="bg-slate-950 text-white">2nd Year</option>
-                  <option value="3rd Year" className="bg-slate-950 text-white">3rd Year</option>
-                  <option value="4th Year" className="bg-slate-950 text-white">4th Year</option>
+                  <option value="" disabled className="bg-slate-950 text-slate-400">
+                    Select year
+                  </option>
+                  {["1st Year", "2nd Year", "3rd Year", "4th Year"].map((y) => (
+                    <option key={y} value={y} className="bg-slate-950 text-white">
+                      {y}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Semester Select */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-2">
                   Semester <span className="text-cyan-400">*</span>
@@ -205,11 +412,17 @@ export default function WorkshopEnrolment() {
                   value={formData.semester}
                   onChange={handleChange}
                   required
-                  className="w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all appearance-none cursor-pointer"
+                  className={selectClass}
                 >
-                  <option value="" disabled className="bg-slate-950 text-slate-400">Select semester</option>
+                  <option value="" disabled className="bg-slate-950 text-slate-400">
+                    Select semester
+                  </option>
                   {Array.from({ length: 8 }, (_, i) => (
-                    <option key={i + 1} value={`Semester ${i + 1}`} className="bg-slate-950 text-white">
+                    <option
+                      key={i + 1}
+                      value={`Semester ${i + 1}`}
+                      className="bg-slate-950 text-white"
+                    >
                       Semester {i + 1}
                     </option>
                   ))}
@@ -242,7 +455,8 @@ export default function WorkshopEnrolment() {
                 onChange={handleChange}
                 placeholder="e.g. Madhav Institute of Technology & Science (MITS)"
                 required
-                className="w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                maxLength={150}
+                className={inputClass}
               />
             </div>
           </section>
@@ -264,19 +478,78 @@ export default function WorkshopEnrolment() {
               <label className="block text-xs font-semibold text-slate-300 mb-2">
                 Workshop name <span className="text-cyan-400">*</span>
               </label>
-              <select
-                name="workshopName"
-                value={formData.workshopName}
-                onChange={handleChange}
-                required
-                className="w-full bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all appearance-none cursor-pointer"
-              >
-                <option value="" disabled className="bg-slate-950 text-slate-400">Select workshop name</option>
-                <option value="Computer Vision & Edge AI Masterclass" className="bg-slate-950 text-white">Computer Vision & Edge AI Masterclass</option>
-                <option value="IoT & Robotics Masterclass" className="bg-slate-950 text-white">IoT & Robotics Masterclass</option>
-                <option value="NVIDIA Jetson Orin Prototyping Bootcamp" className="bg-slate-950 text-white">NVIDIA Jetson Orin Prototyping Bootcamp</option>
-                <option value="Embedded Systems & Industry 4.0" className="bg-slate-950 text-white">Embedded Systems & Industry 4.0</option>
-              </select>
+
+              {loadingWorkshops ? (
+                <div className="flex items-center gap-2 text-sm text-slate-400 border border-slate-800 rounded-xl px-4 py-3">
+                  <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                  Loading available workshops…
+                </div>
+              ) : workshopsError ? (
+                <div className="text-sm text-red-400 border border-red-500/30 rounded-xl px-4 py-3">
+                  {workshopsError}
+                </div>
+              ) : workshops.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-slate-400 border border-slate-800 rounded-xl px-4 py-3">
+                  <CalendarX className="w-4 h-4 text-slate-500" />
+                  No workshops are open for registration right now. Check back soon.
+                </div>
+              ) : (
+                <select
+                  name="workshopId"
+                  value={formData.workshopId}
+                  onChange={handleChange}
+                  required
+                  className={selectClass}
+                >
+                  <option value="" disabled className="bg-slate-950 text-slate-400">
+                    Select workshop name
+                  </option>
+                  {workshops.map((w) => (
+                    <option key={w.id} value={w.id} className="bg-slate-950 text-white">
+                      {w.title}
+                      {w.date ? ` — ${w.date}` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* Details of the chosen workshop */}
+              {selectedWorkshop && (
+                <div className="mt-4 border border-slate-800 rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                  <div>
+                    <span className="block text-slate-500 uppercase tracking-wider font-semibold mb-1">
+                      Date
+                    </span>
+                    <span className="text-white">{selectedWorkshop.date || "TBA"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 uppercase tracking-wider font-semibold mb-1">
+                      Time
+                    </span>
+                    <span className="text-white">{selectedWorkshop.time || "TBA"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 uppercase tracking-wider font-semibold mb-1">
+                      Venue
+                    </span>
+                    <span className="text-white">{selectedWorkshop.venue || "TBA"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-slate-500 uppercase tracking-wider font-semibold mb-1">
+                      Closes
+                    </span>
+                    <span className={deadlinePassed ? "text-red-400" : "text-white"}>
+                      {selectedWorkshop.deadline || "—"}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {deadlinePassed && (
+                <p className="mt-3 text-xs text-red-400">
+                  Registration for this workshop closed on {selectedWorkshop.deadline}.
+                </p>
+              )}
             </div>
           </section>
 
@@ -302,9 +575,13 @@ export default function WorkshopEnrolment() {
                   type="text"
                   name="couponCode"
                   value={formData.couponCode}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    setAppliedCoupon(null);
+                    setCouponError("");
+                  }}
                   placeholder="Enter coupon code"
-                  className="flex-1 bg-transparent border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all uppercase"
+                  className={`flex-1 ${inputClass} uppercase`}
                 />
                 <button
                   type="button"
@@ -315,68 +592,96 @@ export default function WorkshopEnrolment() {
                   Apply
                 </button>
               </div>
+              {appliedCoupon && (
+                <p className="mt-2 text-xs text-cyan-400">
+                  Coupon {appliedCoupon.code} applied — {appliedCoupon.percentOff}% off.
+                </p>
+              )}
+              {couponError && (
+                <p className="mt-2 text-xs text-red-400">{couponError}</p>
+              )}
             </div>
           </section>
 
           {/* ===== CHECKOUT CARD & CTA BUTTON ===== */}
           <div className="pt-4 space-y-4">
-            
-            {/* Razorpay Banner */}
-            <div className="border border-cyan-500/20 rounded-2xl p-5 flex items-center justify-between">
+            <div className="border border-cyan-500/20 rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full border border-cyan-500/30 flex items-center justify-center text-cyan-400">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">Secure checkout</h4>
-                  <p className="text-xs text-slate-400">Payment verified by Razorpay</p>
+                  <p className="text-xs text-slate-400">
+                    {totalPayable > 0
+                      ? "Payment collected at the venue on confirmation"
+                      : "No payment required for this workshop"}
+                  </p>
                 </div>
               </div>
 
               <div className="text-right">
-                <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total payable</span>
-                <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
-                  ₹{totalPayable.toLocaleString('en-IN')}
+                <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                  Total payable
                 </span>
+                <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
+                  ₹{totalPayable.toLocaleString("en-IN")}
+                </span>
+                {discount > 0 && (
+                  <span className="block text-[10px] text-slate-500 line-through">
+                    ₹{baseFee.toLocaleString("en-IN")}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* CTA Button */}
+            {submitError && (
+              <div className="border border-red-500/30 bg-red-500/5 rounded-xl px-4 py-3 text-sm text-red-400">
+                {submitError}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-base transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
+              disabled={submitting || deadlinePassed || workshops.length === 0}
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-base transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              <span>Book Your Slot</span>
-              <ArrowRight className="w-5 h-5" />
+              {submitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Submitting…</span>
+                </>
+              ) : (
+                <>
+                  <span>Book Your Slot</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
             </button>
           </div>
-
         </form>
       </div>
 
       {/* ===== FLOATING ACTION WIDGETS ===== */}
       <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3 items-end">
-        {/* Ask IoTily AI Button */}
-        <button 
-          type="button" 
+        <button
+          type="button"
           className="px-4 py-2.5 rounded-full border border-cyan-500/40 text-cyan-300 text-xs font-bold hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-md hover:border-cyan-400"
         >
           <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
           <span>Ask IoTily AI</span>
         </button>
 
-        {/* Floating WhatsApp Button */}
-        <a 
-          href="https://wa.me/917815809412" 
-          target="_blank" 
-          rel="noreferrer" 
+        <a
+          href="https://wa.me/917815809412"
+          target="_blank"
+          rel="noreferrer"
           aria-label="WhatsApp"
           className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 flex items-center justify-center hover:scale-110 transition-all"
         >
           <MessageSquare className="w-6 h-6 fill-current" />
         </a>
       </div>
-
     </div>
   );
 }
