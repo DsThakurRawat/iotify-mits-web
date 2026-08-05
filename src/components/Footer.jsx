@@ -14,15 +14,18 @@ export default function Footer({ onNavigate }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // Only pages that actually exist — "research" and "team" had no page behind
+  // them and silently dumped visitors on the homepage.
   const pageMap = {
     "About Us": "about",
-    "Research": "research",
+    "Research": "projects",
     "Projects": "projects",
-    "Team": "team",
+    "Team": "developer",
     "Gallery": "gallery",
     "Contact Us": "contact",
     "Collaborate": "contact",
     "Internships": "contact",
+    "Book a Workshop": "book",
   };
 
   return (
