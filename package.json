@@ -6,17 +6,19 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db:migrate": "node scripts/migrate.js",
+    "db:create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.7.0",
-    "firebase": "^12.17.0",
     "framer-motion": "^11.18.2",
     "gsap": "^3.12.5",
     "lucide-react": "^0.469.0",
     "papaparse": "^5.5.4",
+    "pg": "^8.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.6.0",

@@ -50,7 +50,7 @@ export default function ConfirmDialog({ state, onClose, busy = false }) {
                 <h2 className="font-display font-bold text-lg text-white mb-1.5">
                   {state.title}
                 </h2>
-                <p className="text-sm text-muted leading-relaxed">{state.message}</p>
+                <p className="text-sm a-muted leading-relaxed">{state.message}</p>
               </div>
             </div>
 

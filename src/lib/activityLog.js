@@ -1,24 +1,20 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "./firebase";
+import { createDoc } from "./api";
 
 /**
  * Append an entry to the audit trail. Never throws — a failed log must not
  * take down the action the admin actually asked for.
  *
- * @param {{uid: string, name?: string, email?: string}} actor
+ * The actor is not sent. The API reads it from the session token, so an entry
+ * cannot be attributed to somebody else; the `actor` argument survives only so
+ * call sites read as they did before, and is ignored.
+ *
+ * @param {unknown} _actor  ignored — the server knows who is signed in
  * @param {string} action  e.g. "Approved registration"
  * @param {string} target  e.g. "Ananya Sharma — IoT Masterclass"
  */
-export async function logActivity(actor, action, target = "") {
-  if (!actor?.uid) return;
+export async function logActivity(_actor, action, target = "") {
   try {
-    await addDoc(collection(db, "activityLogs"), {
-      actorUid: actor.uid,
-      actorName: actor.name || actor.email || "Unknown",
-      action,
-      target,
-      createdAt: serverTimestamp(),
-    });
+    await createDoc("activityLogs", { action, target });
   } catch (error) {
     console.warn("Activity log write failed", error);
   }

@@ -11,20 +11,12 @@ import {
   Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../../lib/firebase";
+import { createDoc, updateDoc, deleteDoc, uploadImage } from "../../lib/api";
 import { useCollection } from "../../lib/useCollection";
 import { useAuth } from "../../contexts/AuthContext";
 import { logActivity } from "../../lib/activityLog";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
+import { StatusBadge } from "../../components/admin/ui";
 
 const EMPTY_FORM = {
   title: "",
@@ -42,12 +34,12 @@ const EMPTY_FORM = {
   status: "Draft",
 };
 
-const fieldClass =
-  "px-4 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-cyan-primary/50 transition-colors";
-const labelClass =
-  "text-xs text-muted uppercase tracking-wider font-display";
+const fieldClass = "a-field";
+const labelClass = "a-label";
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+// Serverless request bodies top out around 4.5 MB, so the upload has to stay
+// under that — the API rejects anything larger anyway.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 export default function AdminWorkshops() {
   const { adminProfile, can } = useAuth();
@@ -111,7 +103,7 @@ export default function AdminWorkshops() {
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      toast.error("Image must be under 5 MB");
+      toast.error("Image must be under 4 MB");
       e.target.value = "";
       return;
     }
@@ -142,17 +134,8 @@ export default function AdminWorkshops() {
       let bannerUrl = editingWorkshop?.banner || "";
       let speakerUrl = editingWorkshop?.speakerPhotoUrl || "";
 
-      if (bannerFile) {
-        const fileRef = ref(storage, `banners/${Date.now()}_${bannerFile.name}`);
-        await uploadBytes(fileRef, bannerFile);
-        bannerUrl = await getDownloadURL(fileRef);
-      }
-
-      if (speakerPhotoFile) {
-        const fileRef = ref(storage, `speakers/${Date.now()}_${speakerPhotoFile.name}`);
-        await uploadBytes(fileRef, speakerPhotoFile);
-        speakerUrl = await getDownloadURL(fileRef);
-      }
+      if (bannerFile) bannerUrl = await uploadImage(bannerFile);
+      if (speakerPhotoFile) speakerUrl = await uploadImage(speakerPhotoFile);
 
       const workshopData = {
         ...formData,
@@ -161,16 +144,14 @@ export default function AdminWorkshops() {
         fee: formData.fee === "" ? 0 : Number(formData.fee),
         banner: bannerUrl,
         speakerPhotoUrl: speakerUrl,
-        updatedAt: serverTimestamp(),
       };
 
       if (editingWorkshop) {
-        await updateDoc(doc(db, "workshops", editingWorkshop.id), workshopData);
+        await updateDoc("workshops", editingWorkshop.id, workshopData);
         toast.success("Workshop updated");
         logActivity(adminProfile, "Updated workshop", workshopData.title);
       } else {
-        workshopData.createdAt = serverTimestamp();
-        await addDoc(collection(db, "workshops"), workshopData);
+        await createDoc("workshops", workshopData);
         toast.success("Workshop created");
         logActivity(adminProfile, "Created workshop", workshopData.title);
       }
@@ -179,11 +160,7 @@ export default function AdminWorkshops() {
       setEditingWorkshop(null);
     } catch (err) {
       console.error(err);
-      toast.error(
-        err?.code === "permission-denied"
-          ? "You don't have permission to do that"
-          : "Error saving workshop"
-      );
+      toast.error(err.message || "Error saving workshop");
     } finally {
       setIsSubmitting(false);
     }
@@ -191,10 +168,7 @@ export default function AdminWorkshops() {
 
   const setStatus = async (workshop, status) => {
     try {
-      await updateDoc(doc(db, "workshops", workshop.id), {
-        status,
-        updatedAt: serverTimestamp(),
-      });
+      await updateDoc("workshops", workshop.id, { status });
       toast.success(
         status === "Published"
           ? "Workshop published — it now appears on the booking page"
@@ -212,12 +186,10 @@ export default function AdminWorkshops() {
   const duplicate = async (workshop) => {
     try {
       const { id, createdAt, updatedAt, ...rest } = workshop;
-      await addDoc(collection(db, "workshops"), {
+      await createDoc("workshops", {
         ...rest,
         title: `${workshop.title} (Copy)`,
         status: "Draft",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       });
       toast.success("Workshop duplicated as a draft");
       logActivity(adminProfile, "Duplicated workshop", workshop.title);
@@ -229,26 +201,32 @@ export default function AdminWorkshops() {
 
   const askDelete = (workshop) => {
     const taken = seatsTaken[workshop.id] || 0;
+
+    // A workshop with registrations against it can't be deleted at all — the
+    // foreign key refuses, rather than leaving those students pointing at a
+    // workshop that no longer exists. Say so before they click.
+    if (taken > 0) {
+      return toast.error(
+        `"${workshop.title}" has ${taken} registration${taken === 1 ? "" : "s"}. ` +
+          "Delete those first, or close registrations instead."
+      );
+    }
+
     setConfirm({
       title: "Delete workshop?",
       tone: "danger",
-      message:
-        taken > 0
-          ? `"${workshop.title}" has ${taken} registration${
-              taken === 1 ? "" : "s"
-            }. Deleting the workshop does not delete them, but they will lose their linked workshop details. This cannot be undone.`
-          : `"${workshop.title}" will be permanently deleted. This cannot be undone.`,
+      message: `"${workshop.title}" will be permanently deleted. This cannot be undone.`,
       confirmLabel: "Delete",
       onConfirm: async () => {
         setBusy(true);
         try {
-          await deleteDoc(doc(db, "workshops", workshop.id));
+          await deleteDoc("workshops", workshop.id);
           toast.success("Workshop deleted");
           logActivity(adminProfile, "Deleted workshop", workshop.title);
           setConfirm(null);
         } catch (err) {
           console.error(err);
-          toast.error("Failed to delete workshop");
+          toast.error(err.message || "Failed to delete workshop");
         } finally {
           setBusy(false);
         }
@@ -260,15 +238,15 @@ export default function AdminWorkshops() {
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-display font-bold text-3xl text-white">Workshops</h1>
-          <p className="text-muted text-sm mt-1">
+          <h1 className="a-title text-2xl sm:text-[28px] leading-tight">Workshops</h1>
+          <p className="a-muted text-sm mt-1.5">
             Published workshops appear on the public booking page.
           </p>
         </div>
         {canWrite && (
           <button
             onClick={() => handleOpenModal()}
-            className="btn-primary py-2 px-4 rounded-xl flex items-center gap-2 text-sm"
+            className="a-btn a-btn-primary py-2 px-4 rounded-xl flex items-center gap-2 text-sm"
           >
             <Plus size={16} />
             Create Workshop
@@ -276,17 +254,17 @@ export default function AdminWorkshops() {
         )}
       </div>
 
-      <div className="glass-card rounded-2xl overflow-hidden">
+      <div className="a-panel overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-muted flex items-center justify-center gap-2">
+          <div className="p-12 text-center a-muted flex items-center justify-center gap-2">
             <Loader2 size={16} className="animate-spin" /> Loading workshops…
           </div>
         ) : error ? (
           <div className="p-12 text-center text-red-400 text-sm">
-            Could not load workshops. Check your Firebase configuration and rules.
+            Could not load workshops. {error.message}
           </div>
         ) : sorted.length === 0 ? (
-          <div className="p-12 text-center text-muted text-sm flex flex-col items-center">
+          <div className="p-12 text-center a-muted text-sm flex flex-col items-center">
             <div className="w-16 h-16 rounded-full bg-white/[0.03] flex items-center justify-center mb-4 text-cyan-primary/50">
               <Plus size={24} />
             </div>
@@ -297,7 +275,7 @@ export default function AdminWorkshops() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[820px]">
               <thead>
-                <tr className="border-b border-white/[0.05] text-muted text-xs uppercase tracking-wider font-display">
+                <tr className="border-b border-white/[0.05] a-muted text-xs uppercase tracking-wider font-display">
                   <th className="p-4 font-medium">Workshop</th>
                   <th className="p-4 font-medium">Speaker</th>
                   <th className="p-4 font-medium">Date</th>
@@ -326,12 +304,12 @@ export default function AdminWorkshops() {
                             />
                           ) : (
                             <div className="w-10 h-10 rounded-lg bg-white/[0.05] flex items-center justify-center shrink-0">
-                              <ImageIcon size={16} className="text-muted" />
+                              <ImageIcon size={16} className="a-muted" />
                             </div>
                           )}
                           <div>
                             <p className="text-white font-medium">{ws.title}</p>
-                            <p className="text-muted text-xs">{ws.category}</p>
+                            <p className="a-muted text-xs">{ws.category}</p>
                           </div>
                         </div>
                       </td>
@@ -350,24 +328,14 @@ export default function AdminWorkshops() {
                         )}
                       </td>
                       <td className="p-4">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                            ws.status === "Published"
-                              ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                              : ws.status === "Closed"
-                              ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                              : "bg-gray-500/10 text-gray-400 border border-gray-500/20"
-                          }`}
-                        >
-                          {ws.status || "Draft"}
-                        </span>
+                        <StatusBadge status={ws.status} fallback="Draft" />
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-1">
                           {canWrite && ws.status !== "Published" && (
                             <button
                               onClick={() => setStatus(ws, "Published")}
-                              className="p-2 hover:bg-green-500/10 rounded-lg text-muted hover:text-green-400 transition-colors"
+                              className="p-2 hover:bg-green-500/10 rounded-lg a-muted hover:text-green-400 transition-colors"
                               title="Publish"
                             >
                               <Send size={16} />
@@ -376,7 +344,7 @@ export default function AdminWorkshops() {
                           {canWrite && ws.status === "Published" && (
                             <button
                               onClick={() => setStatus(ws, "Closed")}
-                              className="p-2 hover:bg-yellow-500/10 rounded-lg text-muted hover:text-yellow-400 transition-colors"
+                              className="p-2 hover:bg-yellow-500/10 rounded-lg a-muted hover:text-yellow-400 transition-colors"
                               title="Close registrations"
                             >
                               <Lock size={16} />
@@ -385,7 +353,7 @@ export default function AdminWorkshops() {
                           {canWrite && (
                             <button
                               onClick={() => duplicate(ws)}
-                              className="p-2 hover:bg-white/[0.05] rounded-lg text-muted hover:text-white transition-colors"
+                              className="p-2 hover:bg-white/[0.05] rounded-lg a-muted hover:text-white transition-colors"
                               title="Duplicate"
                             >
                               <Copy size={16} />
@@ -394,7 +362,7 @@ export default function AdminWorkshops() {
                           {canWrite && (
                             <button
                               onClick={() => handleOpenModal(ws)}
-                              className="p-2 hover:bg-white/[0.05] rounded-lg text-muted hover:text-white transition-colors"
+                              className="p-2 hover:bg-white/[0.05] rounded-lg a-muted hover:text-white transition-colors"
                               title="Edit"
                             >
                               <Edit2 size={16} />
@@ -403,14 +371,14 @@ export default function AdminWorkshops() {
                           {canDelete && (
                             <button
                               onClick={() => askDelete(ws)}
-                              className="p-2 hover:bg-red-500/10 rounded-lg text-muted hover:text-red-400 transition-colors"
+                              className="p-2 hover:bg-red-500/10 rounded-lg a-muted hover:text-red-400 transition-colors"
                               title="Delete"
                             >
                               <Trash2 size={16} />
                             </button>
                           )}
                           {!canWrite && !canDelete && (
-                            <span className="text-xs text-muted">View only</span>
+                            <span className="text-xs a-muted">View only</span>
                           )}
                         </div>
                       </td>
@@ -439,7 +407,7 @@ export default function AdminWorkshops() {
               </h2>
               <button
                 onClick={handleCloseModal}
-                className="text-muted hover:text-white transition-colors"
+                className="a-muted hover:text-white transition-colors"
                 aria-label="Close"
               >
                 <X size={20} />
@@ -511,7 +479,7 @@ export default function AdminWorkshops() {
                   type="file"
                   accept="image/*"
                   onChange={pickImage(setSpeakerPhotoFile)}
-                  className="text-sm text-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-primary/10 file:text-cyan-primary hover:file:bg-cyan-primary/20 transition-all"
+                  className="text-sm a-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-primary/10 file:text-cyan-primary hover:file:bg-cyan-primary/20 transition-all"
                 />
               </div>
 
@@ -614,7 +582,7 @@ export default function AdminWorkshops() {
                   type="file"
                   accept="image/*"
                   onChange={pickImage(setBannerFile)}
-                  className="text-sm text-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-primary/10 file:text-cyan-primary hover:file:bg-cyan-primary/20 transition-all"
+                  className="text-sm a-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-primary/10 file:text-cyan-primary hover:file:bg-cyan-primary/20 transition-all"
                 />
               </div>
 
@@ -630,7 +598,7 @@ export default function AdminWorkshops() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="btn-primary px-6 py-2 rounded-xl text-sm disabled:opacity-50"
+                  className="a-btn a-btn-primary px-6 py-2 rounded-xl text-sm disabled:opacity-50"
                 >
                   {isSubmitting
                     ? "Saving…"

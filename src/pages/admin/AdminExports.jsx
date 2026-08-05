@@ -6,8 +6,7 @@ import { useCollection, formatDateTime } from "../../lib/useCollection";
 import { useAuth } from "../../contexts/AuthContext";
 import { logActivity } from "../../lib/activityLog";
 
-const controlClass =
-  "px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-cyan-primary/50 [&>option]:bg-[#0A0E14]";
+const controlClass = "a-field";
 
 const COLUMNS = [
   ["Registration ID", (r) => r.id],
@@ -124,22 +123,22 @@ export default function AdminExports() {
   return (
     <div className="flex flex-col gap-8 max-w-4xl">
       <div>
-        <h1 className="font-display font-bold text-3xl text-white">Data Export</h1>
-        <p className="text-muted text-sm mt-1">
+        <h1 className="a-title text-2xl sm:text-[28px] leading-tight">Data Export</h1>
+        <p className="a-muted text-sm mt-1.5">
           Download registration data for reporting or attendance sheets.
         </p>
       </div>
 
-      <div className="glass-card rounded-2xl overflow-hidden">
+      <div className="a-panel overflow-hidden">
         <div className="p-8 border-b border-white/[0.05] flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-cyan-primary/10 flex items-center justify-center text-cyan-primary shrink-0">
             <FileSpreadsheet size={24} />
           </div>
           <div>
-            <h2 className="font-display font-semibold text-lg text-white">
+            <h2 className="a-title text-[15px]">
               Export Registrations
             </h2>
-            <p className="text-muted text-sm mt-1">
+            <p className="a-muted text-sm mt-1.5">
               Choose what to include, then download as CSV or Excel.
             </p>
           </div>
@@ -147,12 +146,12 @@ export default function AdminExports() {
 
         <div className="p-8 flex flex-col gap-6">
           {loading ? (
-            <div className="text-muted text-sm">Loading options…</div>
+            <div className="a-muted text-sm">Loading options…</div>
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-muted uppercase tracking-wider font-display">
+                  <label className="text-xs a-muted uppercase tracking-wider font-display">
                     Workshop
                   </label>
                   <select
@@ -170,7 +169,7 @@ export default function AdminExports() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-muted uppercase tracking-wider font-display">
+                  <label className="text-xs a-muted uppercase tracking-wider font-display">
                     Status
                   </label>
                   <select
@@ -186,7 +185,7 @@ export default function AdminExports() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-muted uppercase tracking-wider font-display">
+                  <label className="text-xs a-muted uppercase tracking-wider font-display">
                     Department
                   </label>
                   <select
@@ -204,7 +203,7 @@ export default function AdminExports() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-muted uppercase tracking-wider font-display">
+                  <label className="text-xs a-muted uppercase tracking-wider font-display">
                     Year
                   </label>
                   <select
@@ -223,18 +222,18 @@ export default function AdminExports() {
               </div>
 
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] text-sm">
-                <span className="text-muted">Matching records: </span>
+                <span className="a-muted">Matching records: </span>
                 <span className="text-white font-display font-bold text-lg">
                   {filtered.length}
                 </span>
-                <span className="text-muted"> of {registrations.length}</span>
+                <span className="a-muted"> of {registrations.length}</span>
               </div>
 
               <div className="pt-6 border-t border-white/[0.05] flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={exportCsv}
                   disabled={filtered.length === 0}
-                  className="btn-primary px-8 py-3 rounded-xl flex items-center justify-center gap-2 font-medium disabled:opacity-40"
+                  className="a-btn a-btn-primary px-8 py-3 rounded-xl flex items-center justify-center gap-2 font-medium disabled:opacity-40"
                 >
                   <Download size={18} />
                   Download CSV

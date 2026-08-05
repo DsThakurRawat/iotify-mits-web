@@ -9,16 +9,7 @@ import {
   Loader2,
   CalendarX,
 } from "lucide-react";
-import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  query,
-  where,
-} from "firebase/firestore";
-import { db, isFirebaseConfigured, serverTimestamp } from "../lib/firebase";
+import { publicApi } from "../lib/api";
 import AnnouncementsBanner from "../components/AnnouncementsBanner";
 
 const EMPTY_FORM = {
@@ -54,49 +45,37 @@ export default function WorkshopEnrolment({ onNavigate }) {
   const [loadingWorkshops, setLoadingWorkshops] = useState(true);
   const [workshopsError, setWorkshopsError] = useState(null);
 
-  const [coupons, setCoupons] = useState({}); // { CODE: percentOff }
   const [appliedCoupon, setAppliedCoupon] = useState(null); // { code, percentOff }
   const [couponError, setCouponError] = useState("");
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [successRef, setSuccessRef] = useState(null);
 
-  // ── Live list of workshops open for registration ──────────────
+  // ── Workshops open for registration ───────────────────────────
+  // The endpoint returns Published workshops only; drafts and closed ones are
+  // never sent to the browser at all.
   useEffect(() => {
-    if (!isFirebaseConfigured) {
-      setLoadingWorkshops(false);
-      setWorkshopsError("Registrations are temporarily unavailable.");
-      return;
-    }
-    const q = query(collection(db, "workshops"), where("status", "==", "Published"));
-    const unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        const list = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-        setWorkshops(list);
+    let cancelled = false;
+    publicApi
+      .workshops()
+      .then((list) => {
+        if (cancelled) return;
+        setWorkshops([...list].sort((a, b) => (a.date || "").localeCompare(b.date || "")));
         setLoadingWorkshops(false);
         setWorkshopsError(null);
-      },
-      (error) => {
+      })
+      .catch((error) => {
+        if (cancelled) return;
         console.error("Failed to load workshops", error);
         setWorkshopsError("Could not load workshops. Please try again shortly.");
         setLoadingWorkshops(false);
-      }
-    );
-    return unsubscribe;
-  }, []);
+      });
 
-  // ── Coupon codes, managed by admins under Settings → Booking ──
-  useEffect(() => {
-    if (!isFirebaseConfigured) return;
-    getDoc(doc(db, "settings", "booking"))
-      .then((snap) => {
-        if (snap.exists()) setCoupons(snap.data().coupons || {});
-      })
-      .catch(() => setCoupons({}));
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const selectedWorkshop = useMemo(
@@ -118,19 +97,28 @@ export default function WorkshopEnrolment({ onNavigate }) {
     setSubmitError("");
   };
 
-  const handleApplyCoupon = (e) => {
+  // Coupons are checked one at a time against the server. The full code list
+  // is never sent to the browser, so nobody can read every discount out of the
+  // network tab — but the price shown here is still only a preview: the API
+  // re-prices the booking from the fee and coupon on record when it saves.
+  const handleApplyCoupon = async (e) => {
     e.preventDefault();
     const code = formData.couponCode.trim().toUpperCase();
-    if (!code) return;
+    if (!code || checkingCoupon) return;
 
-    const percentOff = Number(coupons[code]);
-    if (!percentOff || percentOff <= 0) {
+    setCheckingCoupon(true);
+    try {
+      const coupon = await publicApi.validateCoupon(code);
+      setAppliedCoupon(coupon);
+      setCouponError("");
+    } catch (error) {
       setAppliedCoupon(null);
-      setCouponError("That coupon code isn't valid.");
-      return;
+      setCouponError(
+        error.status === 404 ? "That coupon code isn't valid." : "Couldn't check that code."
+      );
+    } finally {
+      setCheckingCoupon(false);
     }
-    setAppliedCoupon({ code, percentOff });
-    setCouponError("");
   };
 
   const validate = () => {
@@ -156,8 +144,10 @@ export default function WorkshopEnrolment({ onNavigate }) {
 
     setSubmitting(true);
     try {
-      // Field names here MUST match what the admin portal reads.
-      const payload = {
+      // The workshop title, the amount and the Pending status are all set by
+      // the API from its own records — sending them from here would just be
+      // asking the browser what it should be charged.
+      const created = await publicApi.register({
         name: formData.studentName.trim(),
         enrollment: formData.rollNo.trim(),
         email: formData.email.trim().toLowerCase(),
@@ -168,23 +158,20 @@ export default function WorkshopEnrolment({ onNavigate }) {
         semester: formData.semester,
         collegeName: formData.collegeName.trim(),
         workshopId: selectedWorkshop.id,
-        workshopTitle: selectedWorkshop.title || "",
         couponCode: appliedCoupon?.code || "",
-        amount: totalPayable,
-        status: "Pending",
-        createdAt: serverTimestamp(),
-      };
+      });
 
-      const ref = await addDoc(collection(db, "registrations"), payload);
-      setSuccessRef({ id: ref.id, workshop: selectedWorkshop.title });
+      setSuccessRef({ id: created.id, workshop: created.workshopTitle });
       setFormData(EMPTY_FORM);
       setAppliedCoupon(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       console.error("Registration failed", error);
+      // 400/404/409 carry a message written for the student — a full workshop,
+      // a passed deadline, a duplicate booking. Anything else is ours to own.
       setSubmitError(
-        error?.code === "permission-denied"
-          ? "Registration is closed for this workshop."
+        error.status >= 400 && error.status < 500
+          ? error.message
           : "Something went wrong while saving your registration. Please try again."
       );
     } finally {
@@ -586,10 +573,15 @@ export default function WorkshopEnrolment({ onNavigate }) {
                 <button
                   type="button"
                   onClick={handleApplyCoupon}
-                  className="px-6 py-3 rounded-xl border border-cyan-500/30 hover:border-cyan-400 text-white text-xs font-bold transition-all flex items-center gap-2"
+                  disabled={checkingCoupon}
+                  className="px-6 py-3 rounded-xl border border-cyan-500/30 hover:border-cyan-400 text-white text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50"
                 >
-                  <Ticket className="w-4 h-4 text-cyan-400" />
-                  Apply
+                  {checkingCoupon ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                  ) : (
+                    <Ticket className="w-4 h-4 text-cyan-400" />
+                  )}
+                  {checkingCoupon ? "Checking…" : "Apply"}
                 </button>
               </div>
               {appliedCoupon && (

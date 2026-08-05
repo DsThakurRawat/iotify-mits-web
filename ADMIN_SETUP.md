@@ -2,75 +2,91 @@
 
 One-time setup to get the booking → admin flow running end to end.
 
+The site is a React SPA plus a small API (`api/`) that talks to PostgreSQL.
+The browser never holds database credentials: it calls the API, and the API
+enforces every permission.
+
 ---
 
-## 1. Create the Firebase project
+## 1. Get a PostgreSQL database
 
-1. <https://console.firebase.google.com> → **Add project**
-2. **Build → Authentication → Get started → Email/Password → Enable**
-3. **Build → Firestore Database → Create database** (start in *production* mode — the rules in this repo replace the defaults)
-4. **Build → Storage → Get started** (needed for workshop banners and speaker photos)
+Any Postgres 13+ will do.
 
-## 2. Add the credentials
+**Hosted** (recommended for Vercel) — [Neon](https://neon.tech),
+[Supabase](https://supabase.com), [Railway](https://railway.app) or Vercel
+Postgres. Create a database and copy its connection string.
+
+**Local**
+
+```bash
+createdb iotify
+# connection string: postgres://<you>@localhost:5432/iotify
+```
+
+## 2. Configure
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in the six `VITE_FIREBASE_*` values from **Project settings → General → Your apps → SDK setup and configuration**, then restart the dev server:
+Fill in two values:
+
+| Variable | What it is |
+|---|---|
+| `DATABASE_URL` | The connection string from step 1 |
+| `JWT_SECRET` | Any random string, 32+ characters — it signs admin sessions |
+
+Generate a secret with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+```
+
+> Neither has a `VITE_` prefix, and that is deliberate: that prefix is what
+> tells Vite to inline a value into the JavaScript sent to the browser.
+
+## 3. Create the tables
+
+```bash
+npm run db:migrate
+```
+
+This applies `db/schema.sql`. Every statement is idempotent, so re-run it
+freely after pulling changes.
+
+## 4. Create the first Super Admin
+
+```bash
+npm run db:create-admin -- you@example.com 'a-strong-password' 'Your Name'
+```
+
+The first account is a Super Admin automatically. Re-running with an existing
+email resets that account's password — that is the way back in if you ever
+lock yourself out.
+
+Now start the app and sign in at **`/admin`**:
 
 ```bash
 npm run dev
 ```
 
-Until this is done, `/admin` shows a "Firebase is not configured" notice instead of failing silently.
+Every later admin is created from **Settings → Manage Admins**, which sets
+their password at the same time. An admin row *is* the authorisation: delete
+it and access ends immediately.
 
-> `.env` is git-ignored. On Vercel, add the same variables under **Project → Settings → Environment Variables**.
+## 5. Deploy
 
-## 3. Deploy the security rules
+On Vercel, add `DATABASE_URL` and `JWT_SECRET` under **Project → Settings →
+Environment Variables**, then deploy. `api/[...path].js` runs as a single
+serverless function covering every `/api/*` route; the SPA rewrite in
+`vercel.json` already excludes it.
 
-The rules in `firestore.rules` and `storage.rules` are what actually protect student data — the checks in the React app are only for UX.
+Run `npm run db:migrate` once against the production database (locally, with
+`DATABASE_URL` pointing at it) before the first deploy.
 
-```bash
-npm install -g firebase-tools     # once
-firebase login
-firebase use --add                # pick your project
-firebase deploy --only firestore:rules,firestore:indexes,storage
-```
+---
 
-What they enforce:
-
-| Collection | Public | Admin |
-|---|---|---|
-| `workshops` | read Published/Closed only | full write |
-| `registrations` | **create only**, validated, forced to `Pending` | read / update / delete |
-| `announcements` | read published only | full write |
-| `settings` | read | Super Admin writes |
-| `admins` | own doc only | Super Admin writes |
-| `activityLogs` | none | append-only |
-
-The public can never *read* registrations — student names, emails and phone numbers are not exposed.
-
-## 4. Create the first Super Admin
-
-Access is granted by **Firebase Auth UID**, not by email.
-
-1. **Authentication → Users → Add user** — set an email and password
-2. Copy the generated **User UID**
-3. **Firestore → Start collection** → collection ID `admins`
-4. Document ID = **the UID you copied**, with fields:
-
-| Field | Type | Value |
-|---|---|---|
-| `name` | string | Divyansh Rawat |
-| `email` | string | you@example.com |
-| `role` | string | `Super Admin` |
-
-Now sign in at **`/admin`**. Every later admin can be added from **Settings → Manage Admins** (create the Auth user first, paste the UID).
-
-Signing in without a matching `admins/{uid}` document gets an "Access denied" screen — authentication alone grants nothing.
-
-## 5. Roles
+## Roles
 
 | | Super Admin | Faculty | Coordinator | Volunteer |
 |---|:-:|:-:|:-:|:-:|
@@ -82,28 +98,56 @@ Signing in without a matching `admins/{uid}` document gets an "Access denied" sc
 | Post announcements | ✅ | ✅ | ✅ | — |
 | Edit settings / manage admins | ✅ | — | — | — |
 
-Mirrored in `src/contexts/AuthContext.jsx` (UI) and `firestore.rules` (enforcement).
+Enforced in `api/_lib/auth.js`. The matching table in
+`src/contexts/AuthContext.jsx` only decides which buttons to grey out — it
+grants nothing, and the API re-reads the role from the database on every
+request, so a demotion takes effect immediately rather than when the token
+expires.
 
----
+## What the API protects
+
+| Route | Public | Admin |
+|---|---|---|
+| `GET /api/public/workshops` | Published workshops only | — |
+| `GET /api/public/announcements` | Published and unexpired only | — |
+| `POST /api/public/coupon` | Checks one code it was given | — |
+| `POST /api/public/registrations` | Create, validated and re-priced | — |
+| `/api/workshops`, `/api/announcements` | none | full CRUD by role |
+| `/api/registrations` | none | read / review / delete |
+| `/api/settings` | lab contact details only | Super Admin writes |
+| `/api/admins` | none | Super Admin writes |
+| `/api/activity-logs` | none | append-only |
+| `/api/files/:id` | read (images on the public site) | admins upload |
+
+The public can never *read* registrations — student names, emails and phone
+numbers are not exposed by any endpoint.
+
+A booking is checked entirely server-side: the workshop must be Published,
+its deadline must not have passed, a seat must be free, and the amount is
+recomputed from the fee and coupon on record rather than trusted from the
+browser. Seat capacity is enforced with `SELECT … FOR UPDATE` inside a
+transaction, so simultaneous bookings cannot overshoot `seats`.
 
 ## Daily flow
 
 1. **Workshops → Create Workshop** → set status **Published**
 2. It appears in the dropdown on `/book` — drafts and closed workshops never do
-3. Students register → rows land in **Registrations** live, no refresh needed
+3. Students register → rows land in **Registrations**
 4. Approve / reject individually or with **Approve all in view**
 5. **Exports** → CSV or Excel, filtered by workshop / status / department / year
 6. **Workshops → Close registrations** (padlock icon) when the workshop is full
 
 ## Optional: status emails
 
-Students are emailed on approve/reject only if EmailJS is configured. Without the keys, the portal skips sending — nothing errors.
+Students are emailed on approve/reject only if EmailJS is configured. Without
+the keys the portal skips sending — nothing errors.
 
 1. Create a free account at <https://dashboard.emailjs.com>
 2. Add an email service and two templates (approved / rejected)
 3. Fill `VITE_EMAILJS_*` in `.env`
 
-Template variables available: `to_name`, `to_email`, `workshop_name`, `status`, `lab_name`, `lab_email`, `lab_phone`.
+Template variables: `to_name`, `to_email`, `workshop_name`, `status`,
+`lab_name`, `lab_email`, `lab_phone`.
 
 ## Routes
 
@@ -119,9 +163,30 @@ Template variables available: `to_name`, `to_email`, `workshop_name`, `status`, 
 | `/admin/logs` | Audit trail |
 | `/admin/settings` | Profile, lab info, coupons, admins |
 
-Deep links need a server rewrite to `index.html`, otherwise `/admin` 404s in production. `vercel.json` (Vercel) and `firebase.json` (Firebase Hosting) are both included; on any other host add the equivalent SPA fallback.
+Deep links need a server rewrite to `index.html`, otherwise `/admin` 404s in
+production. `vercel.json` handles this; on another host add the equivalent SPA
+fallback, excluding `/api`.
 
 ## Known limits
 
-- **Seat capacity is not hard-enforced at write time.** Firestore rules can't count documents, so a burst of simultaneous bookings can exceed `seats`. The portal shows live `taken / total` per workshop and flags **Full**; close registrations when it fills. A Cloud Function would be needed for a hard limit.
-- **Payment is recorded, not collected.** The fee and coupon are stored on the registration; there is no gateway integration.
+- **Screens refresh by polling, not a live socket.** Anything you change shows
+  up immediately on your own screen; a change made on someone else's machine
+  arrives within 20 seconds, or as soon as you click the refresh control in the
+  top bar. The top bar always says how fresh the data is.
+- **Uploaded images live in the database** (`files` table) and are served from
+  `/api/files/:id`. Fine for banners and speaker photos; a bucket would be
+  better if this ever grows to thousands of images. Uploads are capped at 4 MB
+  because serverless request bodies are.
+- **Payment is recorded, not collected.** The fee and coupon are stored on the
+  registration; there is no gateway integration.
+- **Deleting a workshop with registrations is refused** by the foreign key.
+  Delete the registrations first, or close the workshop instead.
+
+## Troubleshooting
+
+| Symptom | Cause |
+|---|---|
+| "The portal isn't configured yet" | `DATABASE_URL` or `JWT_SECRET` missing — check `.env`, restart `npm run dev` |
+| "Incorrect email or password" for a known-good account | Reset it: `npm run db:create-admin -- <email> <new-password>` |
+| Everyone signed out at once | `JWT_SECRET` changed — every existing token is void |
+| `db:migrate` fails on TLS | Set `PGSSLMODE=disable` for a local database without TLS |

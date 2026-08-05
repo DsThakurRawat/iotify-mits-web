@@ -9,124 +9,193 @@ import {
   ScrollText,
   LogOut,
   X,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useCollection } from "../../lib/useCollection";
 import logo from "../../assets/images/logo1.png";
 
-const NAV_ITEMS = [
-  { id: "admin-dashboard", label: "Dashboard", icon: LayoutDashboard, permission: null },
-  { id: "admin-workshops", label: "Workshops", icon: Calendar, permission: "workshops:read" },
-  { id: "admin-registrations", label: "Registrations", icon: Users, permission: "registrations:read" },
-  { id: "admin-announcements", label: "Announcements", icon: Megaphone, permission: "announcements:read" },
-  { id: "admin-exports", label: "Exports", icon: Download, permission: "exports:read" },
-  { id: "admin-logs", label: "Activity Logs", icon: ScrollText, permission: "settings:read" },
-  { id: "admin-settings", label: "Settings", icon: Settings, permission: "settings:read" },
+/**
+ * Grouped rather than one flat list of seven. "Registrations" and "Workshops"
+ * are the daily work; exports, logs and settings are occasional. Splitting
+ * them means the eye lands on the right half of the list straight away.
+ */
+const NAV_GROUPS = [
+  {
+    items: [
+      { id: "admin-dashboard", label: "Dashboard", icon: LayoutDashboard, permission: null },
+    ],
+  },
+  {
+    label: "Manage",
+    items: [
+      { id: "admin-workshops", label: "Workshops", icon: Calendar, permission: "workshops:read" },
+      {
+        id: "admin-registrations",
+        label: "Registrations",
+        icon: Users,
+        permission: "registrations:read",
+        // The one number worth carrying in the navigation: work waiting to be done.
+        badge: "pending",
+      },
+      {
+        id: "admin-announcements",
+        label: "Announcements",
+        icon: Megaphone,
+        permission: "announcements:read",
+      },
+    ],
+  },
+  {
+    label: "Records",
+    items: [
+      { id: "admin-exports", label: "Exports", icon: Download, permission: "exports:read" },
+      { id: "admin-logs", label: "Activity Logs", icon: ScrollText, permission: "settings:read" },
+      { id: "admin-settings", label: "Settings", icon: Settings, permission: "settings:read" },
+    ],
+  },
 ];
 
-function SidebarBody({ currentPage, onNavigate, onCloseMobile, instanceId }) {
+const ROLE_TONE = {
+  "Super Admin": "a-badge-info",
+  Faculty: "a-badge-success",
+  Coordinator: "a-badge-warning",
+  Volunteer: "a-badge-neutral",
+};
+
+function initials(name = "") {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?"
+  );
+}
+
+function SidebarBody({ currentPage, onNavigate, onCloseMobile }) {
   const { logout, adminProfile, can } = useAuth();
+  const [registrations] = useCollection("registrations");
+
+  const pending = registrations.filter((r) => (r.status || "Pending") === "Pending").length;
+  const counts = { pending };
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      onNavigate("admin-login");
-    } catch (error) {
-      console.error("Failed to log out", error);
-    }
+    await logout();
+    onNavigate("admin-login");
   };
-
-  const items = NAV_ITEMS.filter((i) => !i.permission || can(i.permission));
 
   return (
     <>
       {/* Brand */}
-      <div className="h-20 flex items-center justify-between px-6 border-b border-white/[0.05] shrink-0">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="IoTify Logo" className="w-8 h-8 object-contain" />
-          <span className="font-display font-bold text-white tracking-wider text-sm">
-            Admin Portal
-          </span>
+      <div
+        className="h-16 flex items-center justify-between px-5 shrink-0"
+        style={{ borderBottom: "1px solid var(--a-line-soft)" }}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <img src={logo} alt="" className="w-7 h-7 object-contain shrink-0" />
+          <div className="min-w-0">
+            <p className="a-title text-[13px] leading-none">IoTify Lab</p>
+            <p className="a-label mt-1 leading-none">Admin</p>
+          </div>
         </div>
         {onCloseMobile && (
-          <button
-            onClick={onCloseMobile}
-            className="lg:hidden p-1.5 rounded-lg text-muted hover:text-white hover:bg-white/[0.06] transition-colors"
-            aria-label="Close navigation"
-          >
+          <button onClick={onCloseMobile} className="a-icon-btn lg:hidden" aria-label="Close navigation">
             <X size={18} />
           </button>
         )}
       </div>
 
-      {/* Signed-in identity */}
-      {adminProfile && (
-        <div className="px-6 py-4 border-b border-white/[0.05] shrink-0">
-          <p className="text-white text-sm font-medium truncate">{adminProfile.name}</p>
-          <p className="text-[11px] text-cyan-primary uppercase tracking-wider font-display mt-0.5">
-            {adminProfile.role}
-          </p>
-        </div>
-      )}
-
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 flex flex-col gap-1.5 overflow-y-auto">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentPage === item.id;
+      <nav className="flex-1 px-4 py-5 overflow-y-auto flex flex-col gap-6">
+        {NAV_GROUPS.map((group, groupIndex) => {
+          const items = group.items.filter((i) => !i.permission || can(i.permission));
+          if (items.length === 0) return null;
+
           return (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-medium ${
-                isActive
-                  ? "bg-cyan-primary/10 text-cyan-primary shadow-[inset_0_0_0_1px_rgba(0,207,255,0.2)]"
-                  : "text-muted hover:bg-white/[0.04] hover:text-white"
-              }`}
-            >
-              <Icon size={18} />
-              {item.label}
-              {isActive && (
-                <motion.div
-                  layoutId={`activeIndicator-${instanceId}`}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-cyan-primary rounded-r-md shadow-[0_0_10px_rgba(0,207,255,0.8)]"
-                />
-              )}
-            </button>
+            <div key={group.label || groupIndex} className="flex flex-col gap-1">
+              {group.label && <p className="a-label px-3 mb-1.5">{group.label}</p>}
+              {items.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentPage === item.id;
+                const count = item.badge ? counts[item.badge] : 0;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onNavigate(item.id)}
+                    data-active={isActive}
+                    aria-current={isActive ? "page" : undefined}
+                    className="a-nav-item w-full text-left"
+                  >
+                    <Icon size={17} className="shrink-0" />
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {count > 0 && (
+                      <span className="a-badge a-badge-warning a-num">{count}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="p-4 border-t border-white/[0.05] shrink-0">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all duration-200"
-        >
-          <LogOut size={18} />
-          Logout
-        </button>
+      {/* Signed-in identity + sign out */}
+      <div className="p-4 shrink-0" style={{ borderTop: "1px solid var(--a-line-soft)" }}>
+        {adminProfile && (
+          <div className="flex items-center gap-3 px-1 pb-3">
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0"
+              style={{
+                background: "var(--a-accent-soft)",
+                border: "1px solid var(--a-accent-line)",
+                color: "var(--a-accent)",
+              }}
+            >
+              {initials(adminProfile.name)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-white text-[13px] font-medium truncate">{adminProfile.name}</p>
+              <span className={`a-badge ${ROLE_TONE[adminProfile.role] || "a-badge-neutral"} mt-1`}>
+                {adminProfile.role}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1">
+          <button onClick={() => onNavigate("home")} className="a-nav-item w-full text-left">
+            <ExternalLink size={17} className="shrink-0" />
+            View website
+          </button>
+          <button
+            onClick={handleLogout}
+            className="a-nav-item w-full text-left"
+            style={{ color: "#FF8A8A" }}
+          >
+            <LogOut size={17} className="shrink-0" />
+            Sign out
+          </button>
+        </div>
       </div>
     </>
   );
 }
 
-export default function AdminSidebar({
-  currentPage,
-  onNavigate,
-  mobileOpen,
-  onCloseMobile,
-}) {
+export default function AdminSidebar({ currentPage, onNavigate, mobileOpen, onCloseMobile }) {
   return (
     <>
       {/* Desktop: permanently docked */}
-      <aside className="hidden lg:flex w-64 h-screen bg-[#05070B]/80 backdrop-blur-xl border-r border-white/[0.05] flex-col fixed left-0 top-0 z-50">
-        {/* The desktop aside stays mounted at mobile widths (`hidden`), so each
-            instance needs its own layoutId or framer-motion animates between them. */}
-        <SidebarBody
-          currentPage={currentPage}
-          onNavigate={onNavigate}
-          instanceId="desktop"
-        />
+      <aside
+        className="hidden lg:flex w-64 h-screen flex-col fixed left-0 top-0 z-50"
+        style={{
+          background: "var(--a-bg-raised)",
+          borderRight: "1px solid var(--a-line-soft)",
+        }}
+      >
+        <SidebarBody currentPage={currentPage} onNavigate={onNavigate} />
       </aside>
 
       {/* Mobile: slide-over drawer */}
@@ -145,13 +214,16 @@ export default function AdminSidebar({
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "tween", duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="lg:hidden fixed left-0 top-0 z-[70] w-72 h-screen bg-[#05070B] border-r border-white/[0.08] flex flex-col"
+              className="lg:hidden fixed left-0 top-0 z-[70] w-72 h-screen flex flex-col"
+              style={{
+                background: "var(--a-bg-raised)",
+                borderRight: "1px solid var(--a-line)",
+              }}
             >
               <SidebarBody
                 currentPage={currentPage}
                 onNavigate={onNavigate}
                 onCloseMobile={onCloseMobile}
-                instanceId="mobile"
               />
             </motion.aside>
           </>

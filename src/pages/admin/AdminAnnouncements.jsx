@@ -10,26 +10,17 @@ import {
   Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../../lib/firebase";
+import { createDoc, updateDoc, deleteDoc, uploadImage } from "../../lib/api";
 import { useCollection, formatDateTime, toDate } from "../../lib/useCollection";
 import { useAuth } from "../../contexts/AuthContext";
 import { logActivity } from "../../lib/activityLog";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
+import { Badge } from "../../components/admin/ui";
 
 const EMPTY_FORM = { title: "", body: "", visibleTill: "", published: true };
 
-const fieldClass =
-  "px-4 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-cyan-primary/50 transition-colors";
-const labelClass = "text-xs text-muted uppercase tracking-wider font-display";
+const fieldClass = "a-field";
+const labelClass = "a-label";
 
 function isExpired(visibleTill) {
   if (!visibleTill) return false;
@@ -84,11 +75,7 @@ export default function AdminAnnouncements() {
     setSubmitting(true);
     try {
       let imageUrl = editing?.imageUrl || "";
-      if (imageFile) {
-        const fileRef = ref(storage, `announcements/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(fileRef, imageFile);
-        imageUrl = await getDownloadURL(fileRef);
-      }
+      if (imageFile) imageUrl = await uploadImage(imageFile);
 
       const payload = {
         title: formData.title.trim(),
@@ -96,17 +83,17 @@ export default function AdminAnnouncements() {
         visibleTill: formData.visibleTill,
         published: formData.published,
         imageUrl,
-        updatedAt: serverTimestamp(),
       };
 
       if (editing) {
-        await updateDoc(doc(db, "announcements", editing.id), payload);
+        await updateDoc("announcements", editing.id, payload);
         toast.success("Announcement updated");
         logActivity(adminProfile, "Updated announcement", payload.title);
       } else {
-        payload.createdAt = serverTimestamp();
-        payload.author = adminProfile?.name || "";
-        await addDoc(collection(db, "announcements"), payload);
+        await createDoc("announcements", {
+          ...payload,
+          author: adminProfile?.name || "",
+        });
         toast.success("Announcement posted");
         logActivity(adminProfile, "Posted announcement", payload.title);
       }
@@ -114,7 +101,7 @@ export default function AdminAnnouncements() {
       setEditing(null);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save announcement");
+      toast.error(err.message || "Failed to save announcement");
     } finally {
       setSubmitting(false);
     }
@@ -122,14 +109,13 @@ export default function AdminAnnouncements() {
 
   const togglePublished = async (item) => {
     try {
-      await updateDoc(doc(db, "announcements", item.id), {
+      await updateDoc("announcements", item.id, {
         published: !(item.published !== false),
-        updatedAt: serverTimestamp(),
       });
       toast.success(item.published !== false ? "Unpublished" : "Published");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to update announcement");
+      toast.error(err.message || "Failed to update announcement");
     }
   };
 
@@ -142,7 +128,7 @@ export default function AdminAnnouncements() {
       onConfirm: async () => {
         setBusy(true);
         try {
-          await deleteDoc(doc(db, "announcements", item.id));
+          await deleteDoc("announcements", item.id);
           toast.success("Announcement deleted");
           logActivity(adminProfile, "Deleted announcement", item.title);
           setConfirm(null);
@@ -159,15 +145,15 @@ export default function AdminAnnouncements() {
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-display font-bold text-3xl text-white">Announcements</h1>
-          <p className="text-muted text-sm mt-1">
+          <h1 className="a-title text-2xl sm:text-[28px] leading-tight">Announcements</h1>
+          <p className="a-muted text-sm mt-1.5">
             Post notices like schedule changes or venue updates.
           </p>
         </div>
         {canWrite && (
           <button
             onClick={() => openModal()}
-            className="btn-primary py-2 px-4 rounded-xl flex items-center gap-2 text-sm"
+            className="a-btn a-btn-primary py-2 px-4 rounded-xl flex items-center gap-2 text-sm"
           >
             <Plus size={16} />
             New Announcement
@@ -176,15 +162,15 @@ export default function AdminAnnouncements() {
       </div>
 
       {loading ? (
-        <div className="glass-card rounded-2xl p-12 text-center text-muted flex items-center justify-center gap-2">
+        <div className="a-panel p-12 text-center a-muted flex items-center justify-center gap-2">
           <Loader2 size={16} className="animate-spin" /> Loading announcements…
         </div>
       ) : error ? (
-        <div className="glass-card rounded-2xl p-12 text-center text-red-400 text-sm">
-          Could not load announcements.
+        <div className="a-panel p-12 text-center text-red-400 text-sm">
+          Could not load announcements. {error.message}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="glass-card rounded-2xl p-12 text-center text-muted text-sm flex flex-col items-center">
+        <div className="a-panel p-12 text-center a-muted text-sm flex flex-col items-center">
           <div className="w-16 h-16 rounded-full bg-white/[0.03] flex items-center justify-center mb-4 text-cyan-primary/50">
             <Megaphone size={24} />
           </div>
@@ -197,7 +183,7 @@ export default function AdminAnnouncements() {
             const expired = isExpired(item.visibleTill);
             const published = item.published !== false;
             return (
-              <div key={item.id} className="glass-card rounded-2xl overflow-hidden flex flex-col">
+              <div key={item.id} className="a-panel overflow-hidden flex flex-col">
                 {item.imageUrl && (
                   <img
                     src={item.imageUrl}
@@ -210,25 +196,17 @@ export default function AdminAnnouncements() {
                     <h3 className="font-display font-semibold text-white leading-snug">
                       {item.title}
                     </h3>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
-                        expired
-                          ? "bg-gray-500/10 text-gray-400 border border-gray-500/20"
-                          : published
-                          ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                          : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
-                      }`}
-                    >
+                    <Badge tone={expired ? "neutral" : published ? "success" : "warning"}>
                       {expired ? "Expired" : published ? "Live" : "Hidden"}
-                    </span>
+                    </Badge>
                   </div>
 
-                  <p className="text-sm text-muted leading-relaxed whitespace-pre-wrap line-clamp-3">
+                  <p className="text-sm a-muted leading-relaxed whitespace-pre-wrap line-clamp-3">
                     {item.body}
                   </p>
 
                   <div className="mt-auto pt-3 border-t border-white/[0.05] flex items-center justify-between">
-                    <div className="text-[11px] text-muted">
+                    <div className="text-[11px] a-muted">
                       {formatDateTime(item.createdAt)}
                       {item.visibleTill && ` · until ${item.visibleTill}`}
                     </div>
@@ -236,21 +214,21 @@ export default function AdminAnnouncements() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => togglePublished(item)}
-                          className="p-2 hover:bg-white/[0.05] rounded-lg text-muted hover:text-white transition-colors"
+                          className="p-2 hover:bg-white/[0.05] rounded-lg a-muted hover:text-white transition-colors"
                           title={published ? "Unpublish" : "Publish"}
                         >
                           {published ? <EyeOff size={15} /> : <Eye size={15} />}
                         </button>
                         <button
                           onClick={() => openModal(item)}
-                          className="p-2 hover:bg-white/[0.05] rounded-lg text-muted hover:text-white transition-colors"
+                          className="p-2 hover:bg-white/[0.05] rounded-lg a-muted hover:text-white transition-colors"
                           title="Edit"
                         >
                           <Edit2 size={15} />
                         </button>
                         <button
                           onClick={() => askDelete(item)}
-                          className="p-2 hover:bg-red-500/10 rounded-lg text-muted hover:text-red-400 transition-colors"
+                          className="p-2 hover:bg-red-500/10 rounded-lg a-muted hover:text-red-400 transition-colors"
                           title="Delete"
                         >
                           <Trash2 size={15} />
@@ -280,7 +258,7 @@ export default function AdminAnnouncements() {
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-muted hover:text-white transition-colors"
+                className="a-muted hover:text-white transition-colors"
                 aria-label="Close"
               >
                 <X size={20} />
@@ -352,7 +330,7 @@ export default function AdminAnnouncements() {
                     }
                     setImageFile(file || null);
                   }}
-                  className="text-sm text-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-primary/10 file:text-cyan-primary hover:file:bg-cyan-primary/20 transition-all"
+                  className="text-sm a-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-primary/10 file:text-cyan-primary hover:file:bg-cyan-primary/20 transition-all"
                 />
               </div>
 
@@ -368,7 +346,7 @@ export default function AdminAnnouncements() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="btn-primary px-6 py-2 rounded-xl text-sm disabled:opacity-50"
+                  className="a-btn a-btn-primary px-6 py-2 rounded-xl text-sm disabled:opacity-50"
                 >
                   {submitting ? "Saving…" : editing ? "Save Changes" : "Post"}
                 </button>

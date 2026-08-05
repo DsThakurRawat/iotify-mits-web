@@ -1,33 +1,30 @@
 import { useEffect, useState } from "react";
 import { Megaphone, X } from "lucide-react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { db, isFirebaseConfigured } from "../lib/firebase";
+import { publicApi } from "../lib/api";
 
 /**
  * Public-facing notices posted from the admin portal (Announcements).
  * Renders nothing when there is nothing live to show.
+ *
+ * The endpoint already applies "published" and the admin's "visible till"
+ * date, so an unpublished or expired notice never reaches the browser.
  */
 export default function AnnouncementsBanner() {
   const [items, setItems] = useState([]);
   const [dismissed, setDismissed] = useState([]);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
-    const q = query(collection(db, "announcements"), where("published", "==", true));
-    const unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        const today = new Date().toISOString().split("T")[0];
-        setItems(
-          snap.docs
-            .map((d) => ({ id: d.id, ...d.data() }))
-            // Respect the "visible till" date set by the admin.
-            .filter((a) => !a.visibleTill || a.visibleTill >= today)
-        );
-      },
-      (error) => console.warn("Announcements unavailable", error)
-    );
-    return unsubscribe;
+    let cancelled = false;
+    publicApi
+      .announcements()
+      .then((data) => {
+        if (!cancelled) setItems(data);
+      })
+      .catch((error) => console.warn("Announcements unavailable", error));
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const visible = items.filter((a) => !dismissed.includes(a.id));

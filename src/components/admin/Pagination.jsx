@@ -13,7 +13,7 @@ export default function Pagination({
 
   return (
     <div className="p-4 border-t border-white/[0.05] flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div className="flex items-center gap-3 text-xs text-muted">
+      <div className="flex items-center gap-3 text-xs a-muted">
         <span>
           Showing <span className="text-white font-medium">{from}–{to}</span> of{" "}
           <span className="text-white font-medium">{total}</span>
@@ -37,18 +37,18 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-muted hover:text-white hover:bg-white/[0.06] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.08] a-muted hover:text-white hover:bg-white/[0.06] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label="Previous page"
         >
           <ChevronLeft size={16} />
         </button>
-        <span className="text-xs text-muted px-2">
+        <span className="text-xs a-muted px-2">
           Page <span className="text-white font-medium">{page}</span> of {totalPages}
         </span>
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-muted hover:text-white hover:bg-white/[0.06] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg bg-white/[0.03] border border-white/[0.08] a-muted hover:text-white hover:bg-white/[0.06] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label="Next page"
         >
           <ChevronRight size={16} />

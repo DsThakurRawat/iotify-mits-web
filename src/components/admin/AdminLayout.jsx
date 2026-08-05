@@ -1,95 +1,136 @@
 import { useEffect, useState } from "react";
-import { Menu, ShieldAlert, LogOut, AlertTriangle } from "lucide-react";
+import { Menu, AlertTriangle, RefreshCw } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { isFirebaseConfigured } from "../../lib/firebase";
+import { refreshCollections, useSyncState } from "../../lib/useCollection";
 import AdminSidebar from "./AdminSidebar";
+import { Panel } from "./ui";
 
-function SetupNotice() {
+const PAGE_LABELS = {
+  "admin-dashboard": "Dashboard",
+  "admin-workshops": "Workshops",
+  "admin-registrations": "Registrations",
+  "admin-announcements": "Announcements",
+  "admin-exports": "Exports",
+  "admin-logs": "Activity Logs",
+  "admin-settings": "Settings",
+};
+
+/**
+ * The API answered, but it has no database or no signing secret — nobody can
+ * sign in until that is fixed, so say what to fix rather than showing a login
+ * form that can only fail.
+ */
+function SetupNotice({ message }) {
   return (
-    <div className="min-h-screen bg-[#05070B] flex items-center justify-center p-6">
-      <div className="glass-card p-8 rounded-2xl max-w-lg">
-        <div className="w-12 h-12 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mb-5 text-yellow-400">
+    <div className="admin-root min-h-screen flex items-center justify-center p-6"
+         style={{ background: "var(--a-bg)" }}>
+      <Panel className="p-8 max-w-lg">
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
+          style={{
+            color: "#FFD166",
+            background: "rgba(234,179,8,0.1)",
+            border: "1px solid rgba(234,179,8,0.24)",
+          }}
+        >
           <AlertTriangle size={24} />
         </div>
-        <h1 className="font-display font-bold text-2xl text-white mb-3">
-          Firebase is not configured
-        </h1>
-        <p className="text-muted text-sm leading-relaxed mb-4">
-          The admin portal needs Firebase credentials before it can sign anyone in.
+        <h1 className="a-title text-2xl mb-3">The portal isn't configured yet</h1>
+        <p className="a-muted text-sm leading-relaxed mb-4">
+          {message || "The API could not reach a database."}
         </p>
-        <ol className="text-sm text-muted space-y-2 list-decimal list-inside mb-5">
+        <ol className="a-muted text-sm space-y-2 list-decimal list-inside mb-5">
           <li>
             Copy <code className="text-cyan-primary">.env.example</code> to{" "}
             <code className="text-cyan-primary">.env</code>
           </li>
-          <li>Fill in the values from Firebase Console → Project settings → Your apps</li>
           <li>
-            Restart the dev server (<code className="text-cyan-primary">npm run dev</code>)
+            Set <code className="text-cyan-primary">DATABASE_URL</code> and{" "}
+            <code className="text-cyan-primary">JWT_SECRET</code>
+          </li>
+          <li>
+            Run <code className="text-cyan-primary">npm run db:migrate</code>, then restart
+            the dev server
           </li>
         </ol>
-        <p className="text-xs text-muted/70 leading-relaxed">
-          Then deploy the security rules and create your first admin document — see{" "}
+        <p className="a-muted text-xs leading-relaxed">
+          Full walkthrough, including creating the first Super Admin, is in{" "}
           <strong className="text-white/80">ADMIN_SETUP.md</strong>.
         </p>
-      </div>
+      </Panel>
     </div>
   );
 }
 
-function NotAuthorised({ email, onLogout, message }) {
+/**
+ * How fresh the numbers on screen are.
+ *
+ * Firestore streamed changes, so "live" could be left unsaid. Data now
+ * arrives by polling, and an admin deciding whether to approve a booking
+ * deserves to know whether they are looking at a snapshot from two seconds
+ * ago or two minutes ago — and to be able to force the question.
+ */
+function SyncIndicator() {
+  const { lastSyncedAt, syncing } = useSyncState();
+  const [, tick] = useState(0);
+
+  // Re-render on a timer so "12s ago" doesn't freeze at the moment of fetch.
+  useEffect(() => {
+    const timer = setInterval(() => tick((n) => n + 1), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const label = (() => {
+    if (syncing) return "Syncing…";
+    if (!lastSyncedAt) return "Not synced";
+    const seconds = Math.round((Date.now() - lastSyncedAt.getTime()) / 1000);
+    if (seconds < 10) return "Up to date";
+    if (seconds < 60) return `${seconds}s ago`;
+    return `${Math.round(seconds / 60)}m ago`;
+  })();
+
   return (
-    <div className="min-h-screen bg-[#05070B] flex items-center justify-center p-6">
-      <div className="glass-card p-8 rounded-2xl max-w-md text-center">
-        <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-5 mx-auto text-red-400">
-          <ShieldAlert size={24} />
-        </div>
-        <h1 className="font-display font-bold text-2xl text-white mb-3">Access denied</h1>
-        <p className="text-muted text-sm leading-relaxed mb-2">
-          {message ||
-            "Your account is signed in but is not authorised for the admin portal."}
-        </p>
-        <p className="text-xs text-muted/70 mb-6 break-all">{email}</p>
-        <p className="text-xs text-muted/70 mb-6 leading-relaxed">
-          A Super Admin must create a document at{" "}
-          <code className="text-cyan-primary">admins/&lt;your-uid&gt;</code> before you
-          can continue.
-        </p>
-        <button
-          onClick={onLogout}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
-        >
-          <LogOut size={16} />
-          Sign out
-        </button>
-      </div>
-    </div>
+    <button
+      onClick={refreshCollections}
+      className="a-btn a-btn-ghost a-btn-sm"
+      title="Refresh now"
+      aria-label={`Data ${label}. Refresh now.`}
+    >
+      <RefreshCw size={13} className={syncing ? "animate-spin" : undefined} />
+      <span className="hidden sm:inline">{label}</span>
+    </button>
   );
 }
 
 export default function AdminLayout({ children, currentPage, onNavigate }) {
-  const { currentUser, adminProfile, loading, authError, logout } = useAuth();
+  const { adminProfile, loading, authError, setupRequired } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isLoginPage = currentPage === "admin-login";
 
-  // Bounce unauthenticated visitors back to the login screen.
+  // Bounce unauthenticated visitors back to the login screen. An admin account
+  // is now both the credential and the grant, so there is no signed-in-but-
+  // unauthorised state left to handle: no profile means no session.
   useEffect(() => {
-    if (!loading && !currentUser && !isLoginPage) {
+    if (!loading && !adminProfile && !isLoginPage) {
       onNavigate("admin-login");
     }
-  }, [loading, currentUser, isLoginPage, onNavigate]);
+  }, [loading, adminProfile, isLoginPage, onNavigate]);
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => setMobileOpen(false), [currentPage]);
 
-  if (!isFirebaseConfigured) return <SetupNotice />;
+  if (setupRequired) return <SetupNotice message={authError} />;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#05070B] flex items-center justify-center">
+      <div
+        className="admin-root min-h-screen flex items-center justify-center"
+        style={{ background: "var(--a-bg)" }}
+      >
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-cyan-primary/20 border-t-cyan-primary animate-spin" />
-          <p className="text-muted text-sm">Verifying access…</p>
+          <div className="w-9 h-9 rounded-full border-2 border-cyan-primary/20 border-t-cyan-primary animate-spin" />
+          <p className="a-muted text-sm">Verifying access…</p>
         </div>
       </div>
     );
@@ -97,33 +138,25 @@ export default function AdminLayout({ children, currentPage, onNavigate }) {
 
   if (isLoginPage) {
     return (
-      <div className="min-h-screen bg-[#05070B] flex items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-lines bg-[size:30px_30px] opacity-[0.05]" />
+      <div
+        className="admin-root min-h-screen flex items-center justify-center relative overflow-hidden"
+        style={{ background: "var(--a-bg)" }}
+      >
+        <div className="absolute inset-0 bg-grid-lines bg-[size:32px_32px] opacity-[0.045]" />
+        <div
+          className="absolute -top-40 left-1/2 -translate-x-1/2 w-[620px] h-[420px] rounded-full pointer-events-none"
+          style={{ background: "rgba(0,207,255,0.07)", filter: "blur(150px)" }}
+        />
         <div className="relative z-10 w-full">{children}</div>
       </div>
     );
   }
 
-  if (!currentUser) return null; // redirect above is in flight
-
-  // Signed in, but no /admins/{uid} document — authentication is not authorisation.
-  if (!adminProfile) {
-    return (
-      <NotAuthorised
-        email={currentUser.email}
-        message={authError}
-        onLogout={async () => {
-          await logout();
-          onNavigate("admin-login");
-        }}
-      />
-    );
-  }
+  if (!adminProfile) return null; // redirect above is in flight
 
   return (
-    <div className="min-h-screen bg-[#05070B] text-white">
-      <div className="fixed inset-0 bg-grid-lines bg-[size:30px_30px] opacity-[0.03] pointer-events-none" />
-      <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-cyan-primary/5 rounded-full blur-[150px] pointer-events-none" />
+    <div className="admin-root min-h-screen" style={{ background: "var(--a-bg)" }}>
+      <div className="fixed inset-0 bg-grid-lines bg-[size:32px_32px] opacity-[0.025] pointer-events-none" />
 
       <AdminSidebar
         currentPage={currentPage}
@@ -132,22 +165,33 @@ export default function AdminLayout({ children, currentPage, onNavigate }) {
         onCloseMobile={() => setMobileOpen(false)}
       />
 
-      {/* Mobile top bar */}
-      <div className="lg:hidden sticky top-0 z-40 h-16 flex items-center gap-3 px-4 bg-[#05070B]/90 backdrop-blur-xl border-b border-white/[0.05]">
+      {/* Top bar — sticky on every width, so the refresh control and the
+          current section stay reachable while a long table scrolls. */}
+      <header
+        className="sticky top-0 z-40 lg:ml-64 h-14 flex items-center gap-3 px-4 sm:px-6 backdrop-blur-xl"
+        style={{
+          background: "rgba(5,7,11,0.85)",
+          borderBottom: "1px solid var(--a-line-soft)",
+        }}
+      >
         <button
           onClick={() => setMobileOpen(true)}
-          className="p-2 rounded-lg text-muted hover:text-white hover:bg-white/[0.06] transition-colors"
+          className="a-icon-btn lg:hidden"
           aria-label="Open navigation"
         >
-          <Menu size={20} />
+          <Menu size={19} />
         </button>
-        <span className="font-display font-bold text-sm tracking-wider">Admin Portal</span>
-        <span className="ml-auto text-xs text-muted truncate max-w-[40%]">
-          {adminProfile.role}
-        </span>
-      </div>
 
-      <main className="lg:ml-64 min-h-screen relative z-10 p-4 sm:p-8 lg:p-12">
+        <span className="a-title text-sm truncate">
+          {PAGE_LABELS[currentPage] || "Admin"}
+        </span>
+
+        <div className="ml-auto flex items-center gap-1">
+          <SyncIndicator />
+        </div>
+      </header>
+
+      <main className="lg:ml-64 relative z-10 px-4 sm:px-6 lg:px-10 py-7 lg:py-9">
         <div className="max-w-6xl mx-auto">{children}</div>
       </main>
     </div>

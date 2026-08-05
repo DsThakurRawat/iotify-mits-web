@@ -8,6 +8,8 @@ import {
   Armchair,
   CalendarClock,
   ArrowRight,
+  Inbox,
+  CalendarX,
 } from "lucide-react";
 import {
   LineChart,
@@ -26,39 +28,76 @@ import {
 } from "recharts";
 import { useCollection, toDate, formatDateTime } from "../../lib/useCollection";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  Button,
+  EmptyState,
+  ErrorNotice,
+  PageHeader,
+  Panel,
+  PanelHeader,
+  StatusBadge,
+} from "../../components/admin/ui";
 
-const COLORS = ["#00CFFF", "#4F7DFF", "#7DF9FF", "#FFBB28", "#FF8042", "#8884d8"];
+const COLORS = ["#00CFFF", "#4F7DFF", "#7DF9FF", "#FFBB28", "#FF8042", "#A78BFA"];
 
 const tooltipStyle = {
   backgroundColor: "#0A0E14",
-  borderColor: "rgba(255,255,255,0.1)",
-  borderRadius: "8px",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: "10px",
+  fontSize: 12,
+};
+
+const axis = {
+  stroke: "rgba(255,255,255,0.35)",
+  fontSize: 11,
+  tickLine: false,
+  axisLine: false,
 };
 
 function StatCard({ label, value, icon: Icon, color, index, loading }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.06 }}
-      className="glass-card p-5 rounded-2xl"
+      transition={{ delay: index * 0.04, duration: 0.3 }}
+      className="a-panel p-4"
     >
-      <div className="flex items-center gap-4">
-        <div
-          className={`w-11 h-11 rounded-xl bg-white/[0.04] flex items-center justify-center shrink-0 ${color}`}
-        >
-          <Icon size={22} />
-        </div>
-        <div className="min-w-0">
-          <div className="text-muted text-[11px] uppercase tracking-wider font-display mb-1 truncate">
-            {label}
-          </div>
-          <div className="font-display font-bold text-2xl text-white">
-            {loading ? "…" : value}
-          </div>
-        </div>
+      <div className="flex items-center gap-2 mb-3">
+        <Icon size={15} className={color} />
+        <span className="a-label truncate">{label}</span>
       </div>
+      {loading ? (
+        <div className="a-skeleton h-7 w-12" />
+      ) : (
+        <div className="a-title a-num text-[28px] leading-none">{value}</div>
+      )}
     </motion.div>
+  );
+}
+
+/** Seats taken as a bar — a number next to a number needs mental arithmetic. */
+function SeatMeter({ taken, total }) {
+  const ratio = total > 0 ? Math.min(1, taken / total) : 0;
+  const full = total > 0 && taken >= total;
+
+  return (
+    <div className="w-28">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="a-num text-[11px]" style={{ color: full ? "#FF8A8A" : "var(--a-text-2)" }}>
+          {taken}/{total || "∞"}
+        </span>
+        {full && <span className="text-[10px] font-semibold" style={{ color: "#FF8A8A" }}>FULL</span>}
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--a-inset)" }}>
+        <div
+          className="h-full rounded-full transition-[width] duration-500"
+          style={{
+            width: `${ratio * 100}%`,
+            background: full ? "#EF4444" : ratio > 0.8 ? "#FFBB28" : "var(--a-accent)",
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -155,33 +194,59 @@ export default function AdminDashboard({ onNavigate }) {
   );
 
   const statCards = [
-    { label: "Total Workshops", value: stats.workshops, icon: Calendar, color: "text-blue-400" },
+    { label: "Workshops", value: stats.workshops, icon: Calendar, color: "text-blue-400" },
     { label: "Upcoming", value: stats.upcoming, icon: CalendarClock, color: "text-cyan-bright" },
     { label: "Registrations", value: stats.totalRegs, icon: Users, color: "text-purple-400" },
     { label: "Today", value: stats.todayRegs, icon: Clock, color: "text-cyan-400" },
-    { label: "Pending Approval", value: stats.pending, icon: CheckCircle, color: "text-yellow-400" },
-    { label: "Seats Available", value: stats.availableSeats, icon: Armchair, color: "text-green-400" },
+    { label: "Pending", value: stats.pending, icon: CheckCircle, color: "text-yellow-400" },
+    { label: "Seats Left", value: stats.availableSeats, icon: Armchair, color: "text-green-400" },
   ];
 
   const hasData = registrations.length > 0;
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="font-display font-bold text-3xl text-white">Dashboard</h1>
-        <p className="text-muted text-sm mt-1">
-          Welcome back, {adminProfile?.name?.split(" ")[0] || "admin"}.
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={`Good ${greeting()}, ${adminProfile?.name?.split(" ")[0] || "admin"}`}
+        subtitle="Everything happening across the lab's workshops, at a glance."
+      />
 
-      {error && (
-        <div className="glass-card rounded-2xl p-4 text-sm text-red-400 border border-red-500/20">
-          Could not load data. Check your Firebase configuration and Firestore rules.
-        </div>
+      {error && <ErrorNotice>Could not load data. {error.message}</ErrorNotice>}
+
+      {/* The one thing worth interrupting for: bookings waiting on a decision.
+          A count buried in a six-tile grid is a number; this is a task. */}
+      {!loading && stats.pending > 0 && (
+        <Panel
+          className="p-4 flex items-center gap-4 w-full"
+          style={{ borderColor: "rgba(234,179,8,0.24)", background: "rgba(234,179,8,0.05)" }}
+        >
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "rgba(234,179,8,0.12)", color: "#FFD166" }}
+          >
+            <Inbox size={19} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-white text-sm font-semibold">
+              {stats.pending} registration{stats.pending === 1 ? "" : "s"} waiting for review
+            </p>
+            <p className="a-muted text-xs mt-0.5">
+              Students are emailed as soon as you approve or reject.
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onNavigate?.("admin-registrations")}
+            icon={ArrowRight}
+          >
+            Review
+          </Button>
+        </Panel>
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {statCards.map((s, i) => (
           <StatCard key={s.label} {...s} index={i} loading={loading} />
         ))}
@@ -189,12 +254,10 @@ export default function AdminDashboard({ onNavigate }) {
 
       {/* Charts */}
       {!loading && hasData && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="glass-card p-6 rounded-2xl">
-            <h2 className="font-display font-semibold text-lg text-white mb-6">
-              Registration Trend (7 Days)
-            </h2>
-            <div className="h-64">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Panel>
+            <PanelHeader title="Registrations" description="Last 7 days" />
+            <div className="h-60 p-4 pr-5">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={charts.trend}>
                   <CartesianGrid
@@ -202,39 +265,25 @@ export default function AdminDashboard({ onNavigate }) {
                     stroke="rgba(255,255,255,0.05)"
                     vertical={false}
                   />
-                  <XAxis
-                    dataKey="name"
-                    stroke="rgba(255,255,255,0.4)"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="rgba(255,255,255,0.4)"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    allowDecimals={false}
-                  />
+                  <XAxis dataKey="name" {...axis} />
+                  <YAxis {...axis} allowDecimals={false} width={28} />
                   <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: "#00CFFF" }} />
                   <Line
                     type="monotone"
                     dataKey="count"
                     stroke="#00CFFF"
-                    strokeWidth={3}
-                    dot={{ fill: "#00CFFF", strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6 }}
+                    strokeWidth={2.5}
+                    dot={{ fill: "#00CFFF", strokeWidth: 0, r: 3 }}
+                    activeDot={{ r: 5 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </Panel>
 
-          <div className="glass-card p-6 rounded-2xl">
-            <h2 className="font-display font-semibold text-lg text-white mb-6">
-              Workshop Popularity
-            </h2>
-            <div className="h-64">
+          <Panel>
+            <PanelHeader title="Workshop popularity" description="Share of all bookings" />
+            <div className="h-60 p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -242,10 +291,11 @@ export default function AdminDashboard({ onNavigate }) {
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
-                    cy="50%"
+                    cy="45%"
                     innerRadius={45}
-                    outerRadius={80}
+                    outerRadius={78}
                     paddingAngle={3}
+                    stroke="none"
                   >
                     {charts.workshops.map((entry, i) => (
                       <Cell key={entry.name} fill={COLORS[i % COLORS.length]} />
@@ -256,42 +306,31 @@ export default function AdminDashboard({ onNavigate }) {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </Panel>
 
-          <div className="glass-card p-6 rounded-2xl">
-            <h2 className="font-display font-semibold text-lg text-white mb-6">
-              Top Departments
-            </h2>
-            <div className="h-64">
+          <Panel>
+            <PanelHeader title="Top departments" />
+            <div className="h-60 p-4">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={charts.departments} layout="vertical" margin={{ left: 20 }}>
+                <BarChart data={charts.departments} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="rgba(255,255,255,0.05)"
                     horizontal={false}
                   />
-                  <XAxis
-                    type="number"
-                    stroke="rgba(255,255,255,0.4)"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    allowDecimals={false}
-                  />
+                  <XAxis type="number" {...axis} allowDecimals={false} />
                   <YAxis
                     dataKey="name"
                     type="category"
-                    stroke="rgba(255,255,255,0.8)"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    width={90}
+                    {...axis}
+                    stroke="rgba(255,255,255,0.7)"
+                    width={100}
                   />
                   <Tooltip
-                    cursor={{ fill: "rgba(255,255,255,0.05)" }}
+                    cursor={{ fill: "rgba(255,255,255,0.04)" }}
                     contentStyle={tooltipStyle}
                   />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={22}>
                     {charts.departments.map((entry, i) => (
                       <Cell key={entry.name} fill={COLORS[i % COLORS.length]} />
                     ))}
@@ -299,13 +338,11 @@ export default function AdminDashboard({ onNavigate }) {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </Panel>
 
-          <div className="glass-card p-6 rounded-2xl">
-            <h2 className="font-display font-semibold text-lg text-white mb-6">
-              Year Distribution
-            </h2>
-            <div className="h-64">
+          <Panel>
+            <PanelHeader title="Year of study" />
+            <div className="h-60 p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={charts.years}>
                   <CartesianGrid
@@ -313,157 +350,119 @@ export default function AdminDashboard({ onNavigate }) {
                     stroke="rgba(255,255,255,0.05)"
                     vertical={false}
                   />
-                  <XAxis
-                    dataKey="name"
-                    stroke="rgba(255,255,255,0.4)"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="rgba(255,255,255,0.4)"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    allowDecimals={false}
-                  />
+                  <XAxis dataKey="name" {...axis} />
+                  <YAxis {...axis} allowDecimals={false} width={28} />
                   <Tooltip
-                    cursor={{ fill: "rgba(255,255,255,0.05)" }}
+                    cursor={{ fill: "rgba(255,255,255,0.04)" }}
                     contentStyle={tooltipStyle}
                   />
-                  <Bar dataKey="count" fill="#4F7DFF" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" fill="#4F7DFF" radius={[4, 4, 0, 0]} maxBarSize={44} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </Panel>
         </div>
       )}
 
-      {/* Upcoming workshops */}
-      <div className="glass-card rounded-2xl overflow-hidden">
-        <div className="p-6 border-b border-white/[0.05] flex items-center justify-between">
-          <h2 className="font-display font-semibold text-lg text-white">
-            Upcoming Workshops
-          </h2>
-          <button
-            onClick={() => onNavigate?.("admin-workshops")}
-            className="text-xs text-cyan-primary hover:text-cyan-bright transition-colors flex items-center gap-1"
-          >
-            Manage <ArrowRight size={14} />
-          </button>
-        </div>
-        {loading ? (
-          <div className="p-10 text-center text-muted text-sm">Loading…</div>
-        ) : stats.upcomingList.length === 0 ? (
-          <div className="p-10 text-center text-muted text-sm">
-            No upcoming workshops scheduled.
-          </div>
-        ) : (
-          <div className="divide-y divide-white/[0.04]">
-            {stats.upcomingList.map((w) => {
-              const total = Number(w.seats) || 0;
-              const left = Math.max(0, total - w.taken);
-              return (
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {/* Upcoming workshops */}
+        <Panel className="overflow-hidden">
+          <PanelHeader title="Upcoming workshops">
+            <Button variant="ghost" size="sm" onClick={() => onNavigate?.("admin-workshops")}>
+              Manage <ArrowRight size={13} />
+            </Button>
+          </PanelHeader>
+
+          {loading ? (
+            <div className="p-5 flex flex-col gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="a-skeleton h-9" style={{ opacity: 1 - i * 0.2 }} />
+              ))}
+            </div>
+          ) : stats.upcomingList.length === 0 ? (
+            <EmptyState
+              icon={CalendarX}
+              title="Nothing scheduled"
+              description="Workshops dated today or later will show up here with their seat count."
+            />
+          ) : (
+            <div>
+              {stats.upcomingList.map((w) => (
                 <div
                   key={w.id}
-                  className="p-4 px-6 flex items-center justify-between gap-4 flex-wrap"
+                  className="px-5 py-3.5 flex items-center justify-between gap-4"
+                  style={{ borderTop: "1px solid var(--a-line-soft)" }}
                 >
                   <div className="min-w-0">
                     <p className="text-white text-sm font-medium truncate">{w.title}</p>
-                    <p className="text-muted text-xs">
+                    <p className="a-muted text-xs mt-0.5 truncate">
                       {w.date}
                       {w.time && ` · ${w.time}`}
                       {w.venue && ` · ${w.venue}`}
                     </p>
                   </div>
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="text-muted">
-                      <span className="text-white font-medium">{left}</span> of{" "}
-                      {total || "∞"} seats left
-                    </span>
-                    <span
-                      className={`px-2.5 py-1 rounded-full font-medium ${
-                        w.status === "Published"
-                          ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                          : w.status === "Closed"
-                          ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                          : "bg-gray-500/10 text-gray-400 border border-gray-500/20"
-                      }`}
-                    >
-                      {w.status || "Draft"}
-                    </span>
+                  <div className="flex items-center gap-4 shrink-0">
+                    <SeatMeter taken={w.taken} total={Number(w.seats) || 0} />
+                    <StatusBadge status={w.status} fallback="Draft" />
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </Panel>
 
-      {/* Recent registrations */}
-      <div className="glass-card rounded-2xl overflow-hidden">
-        <div className="p-6 border-b border-white/[0.05] flex items-center justify-between">
-          <h2 className="font-display font-semibold text-lg text-white">
-            Recent Registrations
-          </h2>
-          <button
-            onClick={() => onNavigate?.("admin-registrations")}
-            className="text-xs text-cyan-primary hover:text-cyan-bright transition-colors flex items-center gap-1"
-          >
-            View all <ArrowRight size={14} />
-          </button>
-        </div>
+        {/* Recent registrations */}
+        <Panel className="overflow-hidden">
+          <PanelHeader title="Latest registrations">
+            <Button variant="ghost" size="sm" onClick={() => onNavigate?.("admin-registrations")}>
+              View all <ArrowRight size={13} />
+            </Button>
+          </PanelHeader>
 
-        {loading ? (
-          <div className="p-10 text-center text-muted text-sm">Loading data…</div>
-        ) : recentRegs.length === 0 ? (
-          <div className="p-10 text-center text-muted text-sm">
-            No registrations yet. They will appear here as students book workshops.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[600px]">
-              <thead>
-                <tr className="border-b border-white/[0.05] text-muted text-xs uppercase tracking-wider font-display">
-                  <th className="p-4 font-medium">Name</th>
-                  <th className="p-4 font-medium">Workshop</th>
-                  <th className="p-4 font-medium">When</th>
-                  <th className="p-4 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentRegs.map((reg) => (
-                  <tr key={reg.id} className="border-b border-white/[0.02]">
-                    <td className="p-4">
-                      <div className="text-white font-medium">{reg.name}</div>
-                      <div className="text-muted text-xs">{reg.email}</div>
-                    </td>
-                    <td className="p-4 text-white/80">
-                      {reg.workshopTitle || reg.workshopId}
-                    </td>
-                    <td className="p-4 text-muted text-xs whitespace-nowrap">
-                      {formatDateTime(reg.createdAt)}
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          reg.status === "Approved"
-                            ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                            : reg.status === "Rejected"
-                            ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                            : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
-                        }`}
-                      >
-                        {reg.status || "Pending"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          {loading ? (
+            <div className="p-5 flex flex-col gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="a-skeleton h-9" style={{ opacity: 1 - i * 0.2 }} />
+              ))}
+            </div>
+          ) : recentRegs.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              title="No registrations yet"
+              description="They appear here the moment a student books a published workshop."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="a-table min-w-[460px]">
+                <tbody>
+                  {recentRegs.map((reg) => (
+                    <tr key={reg.id}>
+                      <td>
+                        <div className="text-white font-medium">{reg.name}</div>
+                        <div className="a-muted text-xs">{reg.email}</div>
+                      </td>
+                      <td className="a-muted">{reg.workshopTitle || "—"}</td>
+                      <td className="a-muted text-xs whitespace-nowrap">
+                        {formatDateTime(reg.createdAt)}
+                      </td>
+                      <td>
+                        <StatusBadge status={reg.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
       </div>
     </div>
   );
+}
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "morning";
+  if (hour < 17) return "afternoon";
+  return "evening";
 }

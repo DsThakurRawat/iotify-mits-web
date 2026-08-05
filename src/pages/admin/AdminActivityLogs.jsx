@@ -34,17 +34,17 @@ export default function AdminActivityLogs() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="font-display font-bold text-3xl text-white">Activity Logs</h1>
-        <p className="text-muted text-sm mt-1">
+        <h1 className="a-title text-2xl sm:text-[28px] leading-tight">Activity Logs</h1>
+        <p className="a-muted text-sm mt-1.5">
           Every action taken in the admin portal, newest first.
         </p>
       </div>
 
-      <div className="glass-card rounded-2xl flex flex-col min-h-[400px]">
+      <div className="a-panel flex flex-col min-h-[400px]">
         <div className="p-4 border-b border-white/[0.05]">
           <div className="relative max-w-md">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+              className="absolute left-3 top-1/2 -translate-y-1/2 a-muted"
               size={16}
             />
             <input
@@ -62,15 +62,15 @@ export default function AdminActivityLogs() {
 
         <div className="flex-1 overflow-x-auto">
           {loading ? (
-            <div className="p-12 text-center text-muted flex items-center justify-center gap-2">
+            <div className="p-12 text-center a-muted flex items-center justify-center gap-2">
               <Loader2 size={16} className="animate-spin" /> Loading logs…
             </div>
           ) : error ? (
             <div className="p-12 text-center text-red-400 text-sm">
-              Could not load activity logs.
+              Could not load activity logs. {error.message}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="p-12 text-center text-muted text-sm flex flex-col items-center justify-center min-h-[280px]">
+            <div className="p-12 text-center a-muted text-sm flex flex-col items-center justify-center min-h-[280px]">
               <div className="w-16 h-16 rounded-full bg-white/[0.03] flex items-center justify-center mb-4 text-cyan-primary/50">
                 <ScrollText size={24} />
               </div>
@@ -80,7 +80,7 @@ export default function AdminActivityLogs() {
           ) : (
             <table className="w-full text-left border-collapse min-w-[640px]">
               <thead>
-                <tr className="border-b border-white/[0.05] text-muted text-xs uppercase tracking-wider font-display">
+                <tr className="border-b border-white/[0.05] a-muted text-xs uppercase tracking-wider font-display">
                   <th className="p-4 font-medium">Admin</th>
                   <th className="p-4 font-medium">Action</th>
                   <th className="p-4 font-medium">Target</th>
@@ -95,8 +95,8 @@ export default function AdminActivityLogs() {
                   >
                     <td className="p-4 text-white font-medium">{log.actorName}</td>
                     <td className="p-4 text-white/80">{log.action}</td>
-                    <td className="p-4 text-muted">{log.target || "—"}</td>
-                    <td className="p-4 text-muted text-xs whitespace-nowrap">
+                    <td className="p-4 a-muted">{log.target || "—"}</td>
+                    <td className="p-4 a-muted text-xs whitespace-nowrap">
                       {formatDateTime(log.createdAt)}
                     </td>
                   </tr>

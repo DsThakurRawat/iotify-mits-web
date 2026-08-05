@@ -11,13 +11,13 @@ import {
   Mail,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { updateDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { updateDoc, deleteDoc } from "../../lib/api";
 import { useCollection, formatDateTime, toDate } from "../../lib/useCollection";
 import { useAuth } from "../../contexts/AuthContext";
 import { logActivity } from "../../lib/activityLog";
 import { sendStatusEmail, isMailerConfigured } from "../../lib/mailer";
 import ConfirmDialog from "../../components/admin/ConfirmDialog";
+import { StatusBadge } from "../../components/admin/ui";
 import Pagination from "../../components/admin/Pagination";
 
 const STATUSES = ["Pending", "Approved", "Rejected"];
@@ -31,25 +31,11 @@ const EMPTY_FILTERS = {
   to: "",
 };
 
-const controlClass =
-  "px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-cyan-primary/50 transition-colors [&>option]:bg-[#0A0E14]";
+const controlClass = "a-field";
 
-function StatusPill({ status }) {
-  const s = status || "Pending";
-  return (
-    <span
-      className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-        s === "Approved"
-          ? "bg-green-500/10 text-green-400 border border-green-500/20"
-          : s === "Rejected"
-          ? "bg-red-500/10 text-red-400 border border-red-500/20"
-          : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
-      }`}
-    >
-      {s}
-    </span>
-  );
-}
+// Status colours come from the shared StatusBadge so a "Rejected" row looks
+// the same here, on the dashboard and on the workshops screen.
+const StatusPill = StatusBadge;
 
 export default function AdminRegistrations() {
   const { adminProfile, can } = useAuth();
@@ -156,11 +142,9 @@ export default function AdminRegistrations() {
     if (!canWrite) return toast.error("You don't have permission to do that");
     setUpdatingId(reg.id);
     try {
-      await updateDoc(doc(db, "registrations", reg.id), {
-        status,
-        reviewedBy: adminProfile?.email || "",
-        reviewedAt: serverTimestamp(),
-      });
+      // Who reviewed it and when are stamped by the API from the session, not
+      // sent from here.
+      await updateDoc("registrations", reg.id, { status });
       toast.success(`Registration ${status.toLowerCase()}`);
       logActivity(adminProfile, `${status} registration`, `${reg.name} — ${reg.workshopTitle || ""}`);
 
@@ -174,11 +158,7 @@ export default function AdminRegistrations() {
       }
     } catch (err) {
       console.error(err);
-      toast.error(
-        err?.code === "permission-denied"
-          ? "You don't have permission to do that"
-          : "Failed to update status"
-      );
+      toast.error(err.message || "Failed to update status");
     } finally {
       setUpdatingId(null);
     }
@@ -193,7 +173,7 @@ export default function AdminRegistrations() {
       onConfirm: async () => {
         setBusy(true);
         try {
-          await deleteDoc(doc(db, "registrations", reg.id));
+          await deleteDoc("registrations", reg.id);
           toast.success("Registration deleted");
           logActivity(adminProfile, "Deleted registration", reg.name);
           if (selectedReg?.id === reg.id) setSelectedReg(null);
@@ -221,11 +201,7 @@ export default function AdminRegistrations() {
         let ok = 0;
         for (const reg of targets) {
           try {
-            await updateDoc(doc(db, "registrations", reg.id), {
-              status: "Approved",
-              reviewedBy: adminProfile?.email || "",
-              reviewedAt: serverTimestamp(),
-            });
+            await updateDoc("registrations", reg.id, { status: "Approved" });
             ok++;
             if (isMailerConfigured("Approved")) await sendStatusEmail(reg, "Approved", labInfo);
           } catch (err) {
@@ -244,8 +220,8 @@ export default function AdminRegistrations() {
     <div className="flex flex-col gap-8 relative">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="font-display font-bold text-3xl text-white">Registrations</h1>
-          <p className="text-muted text-sm mt-1">
+          <h1 className="a-title text-2xl sm:text-[28px] leading-tight">Registrations</h1>
+          <p className="a-muted text-sm mt-1.5">
             {counts.total} total · {counts.Pending} pending · {counts.Approved} approved ·{" "}
             {counts.Rejected} rejected
           </p>
@@ -260,13 +236,13 @@ export default function AdminRegistrations() {
         )}
       </div>
 
-      <div className="glass-card rounded-2xl flex flex-col min-h-[500px]">
+      <div className="a-panel flex flex-col min-h-[500px]">
         {/* Toolbar */}
         <div className="p-4 border-b border-white/[0.05] flex flex-col gap-4">
           <div className="flex gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[220px] max-w-md">
               <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                className="absolute left-3 top-1/2 -translate-y-1/2 a-muted"
                 size={16}
               />
               <input
@@ -296,7 +272,7 @@ export default function AdminRegistrations() {
             {activeFilterCount > 0 && (
               <button
                 onClick={() => setFilters(EMPTY_FILTERS)}
-                className="px-3 py-2 text-sm text-muted hover:text-white transition-colors"
+                className="px-3 py-2 text-sm a-muted hover:text-white transition-colors"
               >
                 Clear
               </button>
@@ -358,7 +334,7 @@ export default function AdminRegistrations() {
               </select>
 
               <div className="flex items-center gap-2">
-                <label className="text-xs text-muted whitespace-nowrap">From</label>
+                <label className="text-xs a-muted whitespace-nowrap">From</label>
                 <input
                   type="date"
                   value={filters.from}
@@ -367,7 +343,7 @@ export default function AdminRegistrations() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs text-muted whitespace-nowrap">To</label>
+                <label className="text-xs a-muted whitespace-nowrap">To</label>
                 <input
                   type="date"
                   value={filters.to}
@@ -382,15 +358,15 @@ export default function AdminRegistrations() {
         {/* Table */}
         <div className="flex-1 overflow-x-auto">
           {loading ? (
-            <div className="p-12 text-center text-muted flex items-center justify-center gap-2">
+            <div className="p-12 text-center a-muted flex items-center justify-center gap-2">
               <Loader2 size={16} className="animate-spin" /> Loading registrations…
             </div>
           ) : error ? (
             <div className="p-12 text-center text-red-400 text-sm">
-              Could not load registrations. Check your Firebase configuration and rules.
+              Could not load registrations. {error.message}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="p-12 text-center text-muted text-sm flex flex-col items-center justify-center min-h-[300px]">
+            <div className="p-12 text-center a-muted text-sm flex flex-col items-center justify-center min-h-[300px]">
               <p className="text-white font-medium mb-1">No Registrations Found</p>
               <p>
                 {registrations.length === 0
@@ -401,7 +377,7 @@ export default function AdminRegistrations() {
           ) : (
             <table className="w-full text-left border-collapse min-w-[880px]">
               <thead>
-                <tr className="border-b border-white/[0.05] text-muted text-xs uppercase tracking-wider font-display">
+                <tr className="border-b border-white/[0.05] a-muted text-xs uppercase tracking-wider font-display">
                   <th className="p-4 font-medium whitespace-nowrap">Student</th>
                   <th className="p-4 font-medium whitespace-nowrap">Enrollment</th>
                   <th className="p-4 font-medium whitespace-nowrap">Dept / Year</th>
@@ -419,17 +395,17 @@ export default function AdminRegistrations() {
                   >
                     <td className="p-4">
                       <div className="font-medium text-white">{reg.name}</div>
-                      <div className="text-xs text-muted">{reg.email}</div>
+                      <div className="text-xs a-muted">{reg.email}</div>
                     </td>
                     <td className="p-4 text-white/80">{reg.enrollment}</td>
                     <td className="p-4">
                       <div className="text-white/80">{reg.department}</div>
-                      <div className="text-xs text-muted">{reg.year}</div>
+                      <div className="text-xs a-muted">{reg.year}</div>
                     </td>
                     <td className="p-4 text-white/80 max-w-[200px] truncate">
                       {reg.workshopTitle || reg.workshopId}
                     </td>
-                    <td className="p-4 text-muted text-xs whitespace-nowrap">
+                    <td className="p-4 a-muted text-xs whitespace-nowrap">
                       {formatDateTime(reg.createdAt)}
                     </td>
                     <td className="p-4">
@@ -439,7 +415,7 @@ export default function AdminRegistrations() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => setSelectedReg(reg)}
-                          className="p-2 hover:bg-white/[0.05] rounded-lg text-muted hover:text-white transition-colors"
+                          className="p-2 hover:bg-white/[0.05] rounded-lg a-muted hover:text-white transition-colors"
                           title="View details"
                         >
                           <Eye size={16} />
@@ -449,7 +425,7 @@ export default function AdminRegistrations() {
                             <button
                               onClick={() => updateStatus(reg, "Approved")}
                               disabled={updatingId === reg.id || reg.status === "Approved"}
-                              className="p-2 hover:bg-green-500/10 rounded-lg text-muted hover:text-green-400 transition-colors disabled:opacity-30"
+                              className="p-2 hover:bg-green-500/10 rounded-lg a-muted hover:text-green-400 transition-colors disabled:opacity-30"
                               title="Approve"
                             >
                               <CheckCircle2 size={16} />
@@ -457,7 +433,7 @@ export default function AdminRegistrations() {
                             <button
                               onClick={() => updateStatus(reg, "Rejected")}
                               disabled={updatingId === reg.id || reg.status === "Rejected"}
-                              className="p-2 hover:bg-red-500/10 rounded-lg text-muted hover:text-red-400 transition-colors disabled:opacity-30"
+                              className="p-2 hover:bg-red-500/10 rounded-lg a-muted hover:text-red-400 transition-colors disabled:opacity-30"
                               title="Reject"
                             >
                               <XCircle size={16} />
@@ -467,7 +443,7 @@ export default function AdminRegistrations() {
                         {canDelete && (
                           <button
                             onClick={() => askDelete(reg)}
-                            className="p-2 hover:bg-red-500/10 rounded-lg text-muted hover:text-red-400 transition-colors"
+                            className="p-2 hover:bg-red-500/10 rounded-lg a-muted hover:text-red-400 transition-colors"
                             title="Delete"
                           >
                             <Trash2 size={16} />
@@ -509,7 +485,7 @@ export default function AdminRegistrations() {
               </h2>
               <button
                 onClick={() => setSelectedReg(null)}
-                className="text-muted hover:text-white transition-colors"
+                className="a-muted hover:text-white transition-colors"
                 aria-label="Close"
               >
                 <X size={20} />
@@ -531,7 +507,7 @@ export default function AdminRegistrations() {
                   ["Registered", formatDateTime(selectedReg.createdAt)],
                 ].map(([label, value]) => (
                   <div key={label}>
-                    <div className="text-xs text-muted uppercase font-display mb-1">
+                    <div className="text-xs a-muted uppercase font-display mb-1">
                       {label}
                     </div>
                     <div className="text-white text-sm break-words">{value || "—"}</div>
@@ -540,14 +516,14 @@ export default function AdminRegistrations() {
               </div>
 
               <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.05]">
-                <div className="text-xs text-muted uppercase font-display mb-1">
+                <div className="text-xs a-muted uppercase font-display mb-1">
                   Selected Workshop
                 </div>
                 <div className="text-white font-medium">
                   {selectedReg.workshopTitle || selectedReg.workshopId}
                 </div>
                 {(selectedReg.amount > 0 || selectedReg.couponCode) && (
-                  <div className="text-xs text-muted mt-2">
+                  <div className="text-xs a-muted mt-2">
                     Amount: ₹{Number(selectedReg.amount || 0).toLocaleString("en-IN")}
                     {selectedReg.couponCode && ` · Coupon: ${selectedReg.couponCode}`}
                   </div>
@@ -555,7 +531,7 @@ export default function AdminRegistrations() {
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="text-xs text-muted uppercase font-display">
+                <div className="text-xs a-muted uppercase font-display">
                   Current Status
                 </div>
                 <StatusPill status={selectedReg.status} />
@@ -563,7 +539,7 @@ export default function AdminRegistrations() {
 
               {selectedReg.reviewedBy && (
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted uppercase font-display">Reviewed by</span>
+                  <span className="a-muted uppercase font-display">Reviewed by</span>
                   <span className="text-white/80">{selectedReg.reviewedBy}</span>
                 </div>
               )}

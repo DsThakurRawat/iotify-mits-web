@@ -1,14 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  updatePassword,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-} from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import * as api from "../lib/api";
+import { clearCollections } from "../lib/useCollection";
 
 const AuthContext = createContext();
 
@@ -19,8 +11,8 @@ export function useAuth() {
 /**
  * Permission matrix. Every admin screen gates its destructive actions through
  * `can(...)` so a Volunteer cannot delete a workshop just by knowing the URL.
- * The same matrix is mirrored in firestore.rules — the client checks are for
- * UX, the rules are the actual enforcement.
+ * The same matrix is mirrored in api/_lib/auth.js — the copy here is for UX,
+ * the API is the actual enforcement.
  */
 export const ROLES = ["Super Admin", "Faculty", "Coordinator", "Volunteer"];
 
@@ -52,103 +44,95 @@ const PERMISSIONS = {
 };
 
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [adminProfile, setAdminProfile] = useState(null); // { name, email, role }
-  const [loading, setLoading] = useState(true);
+  const [adminProfile, setAdminProfile] = useState(null); // { id, name, email, role }
+  const [loading, setLoading] = useState(Boolean(api.getToken()));
   const [authError, setAuthError] = useState(null);
+  // The API is reachable but has no DATABASE_URL / JWT_SECRET. That is a
+  // deployment problem nobody can fix by signing in differently, so it gets
+  // its own screen rather than a "wrong password" style message.
+  const [setupRequired, setSetupRequired] = useState(false);
 
-  function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
-  }
-
-  function logout() {
-    setAdminProfile(null);
-    return signOut(auth);
-  }
-
-  async function changePassword(currentPassword, newPassword) {
-    if (!auth.currentUser) throw new Error("Not signed in");
-    const credential = EmailAuthProvider.credential(
-      auth.currentUser.email,
-      currentPassword
-    );
-    await reauthenticateWithCredential(auth.currentUser, credential);
-    await updatePassword(auth.currentUser, newPassword);
-  }
-
+  // Restore the session from the stored token. Unlike Firebase there is no
+  // socket to wait on — either the token is good or it isn't.
   useEffect(() => {
-    // If Firebase Auth never reports an initial state — unreachable network,
-    // a config that points at no real project — don't leave the portal stuck
-    // on a spinner forever. Fall through to the login screen with an
-    // explanation instead.
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      setAuthError(
-        "Couldn't reach Firebase Authentication. Check your connection and that the values in .env match a real Firebase project."
-      );
+    if (!api.getToken()) {
       setLoading(false);
-    }, 8000);
+      return;
+    }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      settled = true;
-      clearTimeout(timer);
-      setCurrentUser(user);
-      setAuthError(null);
-
-      if (!user) {
+    let cancelled = false;
+    api
+      .fetchMe()
+      .then((admin) => {
+        if (cancelled) return;
+        setAdminProfile(admin);
+        setAuthError(null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
         setAdminProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      // Authentication alone is NOT authorisation. A user is an admin only if
-      // a matching document exists at /admins/{uid}.
-      try {
-        const snap = await getDoc(doc(db, "admins", user.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          setAdminProfile({
-            uid: user.uid,
-            name: data.name || user.email,
-            email: data.email || user.email,
-            role: ROLES.includes(data.role) ? data.role : "Volunteer",
-          });
+        if (api.isSetupError(error)) {
+          setSetupRequired(true);
+          setAuthError(error.message);
+        } else if (error.status === 401) {
+          api.setToken(null); // expired or revoked — back to the login screen
         } else {
-          setAdminProfile(null);
+          setAuthError(error.message);
         }
-      } catch (error) {
-        console.error("Failed to load admin profile", error);
-        setAdminProfile(null);
-        setAuthError(
-          "Could not verify admin access. Check your Firebase config and Firestore rules."
-        );
-      } finally {
-        setLoading(false);
-      }
-    });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     return () => {
-      clearTimeout(timer);
-      unsubscribe();
+      cancelled = true;
     };
   }, []);
 
+  // A 401 on any later request means the session died mid-session: an admin
+  // was removed, their role changed, or the token simply aged out.
+  useEffect(() => {
+    api.setSessionExpiredHandler(() => {
+      setAdminProfile(null);
+      clearCollections();
+    });
+    return () => api.setSessionExpiredHandler(() => {});
+  }, []);
+
+  const login = useCallback(async (email, password) => {
+    const admin = await api.login(email, password);
+    setAdminProfile(admin);
+    setAuthError(null);
+    setSetupRequired(false);
+    return admin;
+  }, []);
+
+  const logout = useCallback(async () => {
+    // The token is stateless, so signing out is local: drop it, and drop the
+    // cached data with it so the next person to sign in on this machine never
+    // sees the previous admin's rows flash up.
+    api.setToken(null);
+    setAdminProfile(null);
+    clearCollections();
+  }, []);
+
+  const changePassword = useCallback(
+    (currentPassword, newPassword) => api.changePassword(currentPassword, newPassword),
+    []
+  );
+
   const can = useCallback(
-    (permission) => {
-      if (!adminProfile) return false;
-      return (PERMISSIONS[adminProfile.role] || []).includes(permission);
-    },
+    (permission) => (PERMISSIONS[adminProfile?.role] || []).includes(permission),
     [adminProfile]
   );
 
   const value = {
-    currentUser,
     adminProfile,
     isAdmin: !!adminProfile,
     role: adminProfile?.role || null,
     loading,
     authError,
+    setupRequired,
     can,
     login,
     logout,
