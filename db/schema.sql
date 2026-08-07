@@ -144,3 +144,70 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 );
 
 CREATE INDEX IF NOT EXISTS activity_logs_created_idx ON activity_logs (created_at DESC);
+
+-- ── students ──────────────────────────────────────────────────────────
+-- Registrations used to be anonymous rows: a student typed their name and
+-- enrolment number afresh for every workshop, and the only thing linking two
+-- bookings together was a string match on the email column. That made booking
+-- history, certificates and "how many students have we actually taught?"
+-- impossible to answer. A row here is the identity those rows hang off.
+--
+-- The institute address is the natural key — the university already issued it,
+-- so owning it is the enrolment proof. recovery_email exists because that
+-- mailbox is deactivated within a year of graduating and the account is meant
+-- to outlive it.
+CREATE TABLE IF NOT EXISTS students (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email             TEXT        NOT NULL,
+  recovery_email    TEXT        NOT NULL DEFAULT '',
+  name              TEXT        NOT NULL,
+  enrollment        TEXT        NOT NULL DEFAULT '',
+  branch            TEXT        NOT NULL DEFAULT '',
+  year              TEXT        NOT NULL DEFAULT '',
+  phone             TEXT        NOT NULL DEFAULT '',
+  password_hash     TEXT        NOT NULL,
+  email_verified_at TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Same case-insensitive uniqueness as admins: logins must not depend on caps.
+CREATE UNIQUE INDEX IF NOT EXISTS students_email_key ON students (lower(email));
+
+-- ── email_otps ────────────────────────────────────────────────────────
+-- One-time codes for proving someone owns an address, at signup and at
+-- password reset. Codes are hashed with the same scrypt helper as passwords,
+-- so a leaked backup does not hand anyone a working code.
+--
+-- Rows are kept after they are consumed rather than deleted: the 24-hour
+-- failure count is derived from them, and clearing them would reset an
+-- attacker's budget for free. `purge_expired_otps()` trims the old ones.
+CREATE TABLE IF NOT EXISTS email_otps (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email       TEXT        NOT NULL,
+  otp_hash    TEXT        NOT NULL,
+  purpose     TEXT        NOT NULL
+              CHECK (purpose IN ('signup', 'reset')),
+  attempts    INT         NOT NULL DEFAULT 0,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
+  request_ip  TEXT        NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Every read is "the newest live code for this address and purpose", and the
+-- rate limiter counts recent rows per address and per IP.
+CREATE INDEX IF NOT EXISTS email_otps_lookup_idx
+  ON email_otps (lower(email), purpose, created_at DESC);
+CREATE INDEX IF NOT EXISTS email_otps_ip_idx
+  ON email_otps (request_ip, created_at DESC);
+
+-- ── registrations → students ──────────────────────────────────────────
+-- Nullable and ON DELETE SET NULL on purpose. Registrations taken before
+-- accounts existed have no student, and a booking is a record of something
+-- that happened — deleting the account must not erase it.
+ALTER TABLE registrations
+  ADD COLUMN IF NOT EXISTS student_id UUID REFERENCES students (id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS registrations_student_idx
+  ON registrations (student_id, created_at DESC);

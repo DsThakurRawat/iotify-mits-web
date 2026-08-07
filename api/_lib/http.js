@@ -18,6 +18,8 @@ export const forbidden = (message = "You don't have permission to do that") =>
   new HttpError(403, message);
 export const notFound = (message = "Not found") => new HttpError(404, message);
 export const conflict = (message) => new HttpError(409, message);
+export const tooManyRequests = (message = "Too many requests. Try again shortly.") =>
+  new HttpError(429, message);
 
 export function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload);
@@ -76,6 +78,22 @@ export async function readJsonBody(req) {
     if (error instanceof HttpError) throw error;
     throw badRequest("Request body is not valid JSON");
   }
+}
+
+/**
+ * Best-effort client IP, for rate limiting.
+ *
+ * Behind Vercel the socket address is the proxy's, so the left-most entry of
+ * X-Forwarded-For is the caller. That header is client-supplied and forgeable
+ * in general — it is trustworthy here only because the platform overwrites it
+ * at the edge. Never use it for authorisation, only for throttling.
+ */
+export function clientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length > 0) {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.socket?.remoteAddress || "";
 }
 
 /** Parsed URL for the request, with the host filled in from the Host header. */

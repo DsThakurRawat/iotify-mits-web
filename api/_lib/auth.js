@@ -111,20 +111,37 @@ function signature(data) {
   return createHmac("sha256", secret()).update(data).digest("base64url");
 }
 
-export function createToken(admin) {
+/**
+ * Sign a session token for one audience.
+ *
+ * The audience claim is what keeps the admin portal and the student portal
+ * apart. Both are signed with the same JWT_SECRET, so without it the only
+ * thing stopping a student token from authenticating an admin request is that
+ * their UUID happens not to match a row in `admins` — an accident, not a rule.
+ */
+export function createSignedToken({
+  sub,
+  email,
+  audience,
+  ttlSeconds = TOKEN_TTL_SECONDS,
+}) {
   const issuedAt = Math.floor(Date.now() / 1000);
   const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = b64url(
     JSON.stringify({
-      sub: admin.id,
-      email: admin.email,
+      sub,
+      email,
+      aud: audience,
       iat: issuedAt,
-      exp: issuedAt + TOKEN_TTL_SECONDS,
+      exp: issuedAt + ttlSeconds,
     })
   );
   const data = `${header}.${payload}`;
   return `${data}.${signature(data)}`;
 }
+
+export const createToken = (admin) =>
+  createSignedToken({ sub: admin.id, email: admin.email, audience: "admin" });
 
 /** @returns {{sub: string, email: string, exp: number}|null} */
 export function verifyToken(token) {
@@ -151,7 +168,7 @@ export function verifyToken(token) {
 
 // ── Request authentication ──────────────────────────────────────────────
 
-function bearerToken(req) {
+export function bearerToken(req) {
   const header = req.headers.authorization || "";
   return header.startsWith("Bearer ") ? header.slice(7).trim() : null;
 }
@@ -166,6 +183,11 @@ function bearerToken(req) {
 export async function currentAdmin(req) {
   const claims = verifyToken(bearerToken(req));
   if (!claims?.sub) return null;
+
+  // A token minted for the student portal is validly signed but must not
+  // authenticate an admin request. Tokens issued before the audience claim
+  // existed have no `aud` and are still accepted.
+  if (claims.aud && claims.aud !== "admin") return null;
 
   const row = await queryOne(
     "SELECT id, name, email, role FROM admins WHERE id = $1",

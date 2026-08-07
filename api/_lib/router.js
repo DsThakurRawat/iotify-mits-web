@@ -28,6 +28,8 @@ import {
   buildUpdate,
   isUuid,
 } from "./resources.js";
+import { studentDispatch } from "./studentRoutes.js";
+import { currentStudent } from "./students.js";
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // Vercel caps a request body at ~4.5 MB.
 
@@ -161,6 +163,17 @@ async function createRegistration(req, res) {
     input[name] = body[name];
   }
 
+  // Booking while signed in ties the row to the account. Anonymous booking
+  // still works — the endpoint stays public — but then there is nothing to
+  // hang history or a certificate off until the student registers and the
+  // address is matched up.
+  //
+  // The verified address wins over whatever was typed into the form: without
+  // that, a signed-in student could book under someone else's email and take
+  // the seat the unique index reserves for them.
+  const student = await currentStudent(req);
+  if (student) input.email = student.email;
+
   const created = await transaction(async (client) => {
     const { rows: workshopRows } = await client.query(
       `SELECT id, title, fee, seats, status, deadline::text AS deadline,
@@ -215,7 +228,7 @@ async function createRegistration(req, res) {
         amount,
         status: "Pending",
       },
-      { workshop_id: workshop.id }
+      { workshop_id: workshop.id, student_id: student?.id ?? null }
     );
     const { rows } = await client.query(text, values);
     return rows[0];
@@ -548,6 +561,11 @@ async function dispatch(req, res, segments) {
     if (method === "GET" && second === "me") return me(req, res);
     if (method === "POST" && second === "password") return changeOwnPassword(req, res);
     throw notFound();
+  }
+
+  // ── /api/student/* ──
+  if (first === "student") {
+    return studentDispatch(req, res, method, second);
   }
 
   // ── /api/public/* ──

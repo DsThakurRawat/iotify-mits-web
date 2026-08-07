@@ -167,6 +167,67 @@ Deep links need a server rewrite to `index.html`, otherwise `/admin` 404s in
 production. `vercel.json` handles this; on another host add the equivalent SPA
 fallback, excluding `/api`.
 
+## Student accounts
+
+Students sign up with their institute email. The address is the identity — the
+university already issued it, so owning it is the enrolment proof, and no
+manual approval step is needed.
+
+Set the domains that may hold an account (defaults to `mitsgwalior.in`;
+subdomains are matched too):
+
+```
+STUDENT_EMAIL_DOMAINS=mitsgwalior.in
+```
+
+### Codes need a server-side mailer
+
+The EmailJS block sends approval notices **from the browser**. That cannot
+carry a one-time code — anything the browser can send, it can also read. Codes
+go out through `api/_lib/mailer.js` instead:
+
+| `RESEND_API_KEY` | Behaviour |
+|---|---|
+| set | Delivered over Resend |
+| blank, development | Printed to the `npm run dev` terminal |
+| blank, production | Refused, so a missing key fails loudly rather than logging codes |
+
+### Endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/student/otp` | Send a code (`purpose`: `signup` or `reset`) |
+| POST | `/api/student/register` | Verify the code and create the account |
+| POST | `/api/student/login` | Email + password |
+| POST | `/api/student/reset` | Verify the code and set a new password |
+| GET / PATCH | `/api/student/me` | Own profile |
+| GET | `/api/student/registrations` | Own bookings |
+
+### How bookings connect to accounts
+
+Booking stays open to anyone — no account is required. A registration made
+while signed in is stamped with `student_id` as it is inserted, and recorded
+under the verified address rather than whatever was typed into the form.
+Registrations made earlier are matched by email and back-linked when the
+student signs up.
+
+### Limits on codes
+
+Six digits is only worth something if guessing is metered, so: codes expire
+after 15 minutes, allow 5 tries each, 3 codes per address per hour, 10 per IP
+per hour, and 10 failed tries in 24 hours locks the address until the next day.
+Codes are stored as scrypt hashes and consumed the moment they match, in the
+same transaction as the check.
+
+Email proves ownership at signup and password reset only. It is deliberately
+not a per-login second factor: NIST does not accept email as an out-of-band
+channel, because the inbox is reachable from the same place the password is.
+
+### Tests
+
+`tests/student-auth.sh` and `tests/registration-linking.sh` cover all of the
+above against a running server. See `tests/README.md`.
+
 ## Known limits
 
 - **Screens refresh by polling, not a live socket.** Anything you change shows
