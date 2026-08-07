@@ -151,6 +151,8 @@ export async function issueOtp({ email, purpose, ip }) {
   await assertNotLockedOut(normalized);
   await assertUnderRequestLimits(normalized, ip);
 
+  await purgeExpiredOtps();
+
   const code = generateCode();
   const otpHash = await hashPassword(code);
 
@@ -263,10 +265,22 @@ export async function consumeOtp({ email, purpose, code }) {
   throw badRequest("That code has expired or already been used. Request a new one.");
 }
 
-/** Housekeeping — drop codes old enough that nothing counts them any more. */
+/**
+ * Housekeeping — drop codes old enough that no counter looks at them.
+ *
+ * Called from `issueOtp` rather than on a schedule: there is no cron in a
+ * serverless deployment, and the table would otherwise only ever grow. The
+ * guard keeps it to roughly once an hour per warm instance, and failures are
+ * swallowed because tidying up must never be the reason a signup breaks.
+ */
+let lastPurge = 0;
 export async function purgeExpiredOtps() {
-  const { rowCount } = await query(
+  const now = Date.now();
+  if (now - lastPurge < 60 * 60 * 1000) return 0;
+  lastPurge = now;
+
+  const result = await query(
     "DELETE FROM email_otps WHERE created_at < now() - interval '30 days'"
-  );
-  return rowCount;
+  ).catch(() => null);
+  return result?.rowCount ?? 0;
 }

@@ -15,6 +15,7 @@ import {
   Server,
   Workflow
 } from "lucide-react";
+import { WHATSAPP_BOOKINGS, whatsappLink } from "../lib/contact";
 
 export default function IndustrialIoTLandingPage() {
   const [activeFaq, setActiveFaq] = useState(null);
@@ -707,7 +708,7 @@ export default function IndustrialIoTLandingPage() {
 
         {/* Floating WhatsApp Button */}
         <a 
-          href="https://wa.me/917815809412" 
+          href={whatsappLink(WHATSAPP_BOOKINGS)} 
           target="_blank" 
           rel="noreferrer" 
           aria-label="WhatsApp"

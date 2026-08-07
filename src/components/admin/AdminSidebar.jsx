@@ -13,7 +13,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCollection } from "../../lib/useCollection";
-import logo from "../../assets/images/logo1.png";
+// Served from Cloudinary like every other logo on the site. The local
+// logo1.png was a 1.35 MB PNG that Vite inlined into the main bundle for this
+// one sidebar, so every public visitor downloaded it to render a page they
+// never open.
+const logo = "https://res.cloudinary.com/w1uqr8sy/image/upload/v1785951313/logo_mtsjp4.png";
 
 /**
  * Grouped rather than one flat list of seven. "Registrations" and "Workshops"

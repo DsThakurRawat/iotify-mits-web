@@ -38,7 +38,7 @@ check "no student attached yet" 1 "$($PSQL -c "SELECT count(*) FROM registration
 echo
 echo "── 2. sign up ────────────────────────────────────────────────────"
 status -X POST "$API/student/otp" -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL\"}" >/dev/null
-CODE=$(grep -oE 'Your code is [0-9]{6}' "$LOG" | tail -1 | grep -oE '[0-9]{6}')
+CODE=$(grep -aoE 'Your code is [0-9]{6}' "$LOG" | tail -1 | grep -oE '[0-9]{6}')
 s=$(status -X POST "$API/student/register" -H 'Content-Type: application/json' \
   -d "{\"email\":\"$EMAIL\",\"code\":\"$CODE\",\"name\":\"Link Test\",\"password\":\"$PASS\"}")
 check "account created" 201 "$s"

@@ -2,6 +2,7 @@ import { query, queryOne, transaction } from "./db.js";
 import {
   HttpError,
   badRequest,
+  clientIp,
   conflict,
   forbidden,
   notFound,
@@ -30,6 +31,12 @@ import {
 } from "./resources.js";
 import { studentDispatch } from "./studentRoutes.js";
 import { currentStudent } from "./students.js";
+import {
+  assertLoginAllowed,
+  clearLoginFailures,
+  purgeOldLoginAttempts,
+  recordLoginFailure,
+} from "./loginThrottle.js";
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // Vercel caps a request body at ~4.5 MB.
 
@@ -41,6 +48,10 @@ async function login(req, res) {
     throw badRequest("Email and password are required");
   }
 
+  const ip = clientIp(req);
+  await assertLoginAllowed({ email, ip });
+  await purgeOldLoginAttempts();
+
   const admin = await queryOne(
     "SELECT id, name, email, role, password_hash FROM admins WHERE lower(email) = lower($1)",
     [email.trim()]
@@ -49,7 +60,12 @@ async function login(req, res) {
   // Hash-compare even when the account doesn't exist, so a wrong email and a
   // wrong password take about the same time to answer.
   const ok = await verifyPassword(password, admin?.password_hash ?? "scrypt$16384$8$1$AA==$AA==");
-  if (!admin || !ok) throw unauthorized("Incorrect email or password");
+  if (!admin || !ok) {
+    await recordLoginFailure({ email, ip, portal: "admin" });
+    throw unauthorized("Incorrect email or password");
+  }
+
+  await clearLoginFailures(email);
 
   const { password_hash, ...profile } = admin;
   sendJson(res, 200, { token: createToken(admin), admin: profile });

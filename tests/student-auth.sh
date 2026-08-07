@@ -39,8 +39,15 @@ plain=$($PSQL -c "SELECT otp_hash FROM email_otps WHERE id='$stored'")
 check "code not stored in plaintext" 1 "$(echo "$plain" | grep -qE '^scrypt\$' && echo 1 || echo 0)"
 
 # Pull the real code out of the dev mail log, as a student would from an inbox.
-CODE=$(grep -oE 'Your code is [0-9]{6}' "${DEV_LOG:-/tmp/iotify-dev.log}" | tail -1 | grep -oE '[0-9]{6}')
+CODE=$(grep -aoE 'Your code is [0-9]{6}' "${DEV_LOG:-/tmp/iotify-dev.log}" | tail -1 | grep -oE '[0-9]{6}')
 check "code delivered to dev transport" 6 "${#CODE}"
+# Everything below needs a real code. Bail loudly rather than reporting a dozen
+# cascading failures that all trace back to an unreadable log.
+if [ "${#CODE}" -ne 6 ]; then
+  echo "  ABORT: no code found in ${DEV_LOG:-/tmp/iotify-dev.log}."
+  echo "         Start the server with: npm run dev > /tmp/iotify-dev.log 2>&1 &"
+  exit 1
+fi
 
 echo
 echo "── wrong code paths ──────────────────────────────────────────────"
@@ -150,6 +157,54 @@ check "locked out after 10 cumulative failures" 429 "$s"
 s=$(status -X POST "$API/student/reset" -H 'Content-Type: application/json' \
   -d "{\"email\":\"$EMAIL\",\"code\":\"000000\",\"password\":\"$PASS\"}")
 check "verifying is locked out too, not just requesting" 429 "$s"
+
+echo
+echo "── login throttle (10 failures / 15 min) ─────────────────────────"
+$PSQL -c "DELETE FROM login_attempts;" >/dev/null
+for i in $(seq 1 10); do
+  status -X POST "$API/student/login" -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$EMAIL\",\"password\":\"wrong-password\"}" >/dev/null
+done
+check "10 failures recorded" 10 "$($PSQL -c "SELECT count(*) FROM login_attempts WHERE identifier='$EMAIL'")"
+s=$(status -X POST "$API/student/login" -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"wrong-password\"}")
+check "11th attempt throttled" 429 "$s"
+s=$(status -X POST "$API/student/login" -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}")
+check "correct password refused while throttled" 429 "$s"
+
+$PSQL -c "DELETE FROM login_attempts;" >/dev/null
+s=$(status -X POST "$API/student/login" -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}")
+check "works again once the window clears" 200 "$s"
+
+echo
+echo "── a successful sign-in returns the budget ───────────────────────"
+$PSQL -c "DELETE FROM login_attempts;" >/dev/null
+for i in 1 2 3; do
+  status -X POST "$API/student/login" -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$EMAIL\",\"password\":\"wrong-password\"}" >/dev/null
+done
+check "3 failures banked" 3 "$($PSQL -c "SELECT count(*) FROM login_attempts WHERE identifier='$EMAIL'")"
+status -X POST "$API/student/login" -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}" >/dev/null
+check "cleared after signing in" 0 "$($PSQL -c "SELECT count(*) FROM login_attempts WHERE identifier='$EMAIL'")"
+
+echo
+echo "── the admin portal is throttled too ─────────────────────────────"
+$PSQL -c "DELETE FROM login_attempts;" >/dev/null
+for i in $(seq 1 10); do
+  status -X POST "$API/auth/login" -H 'Content-Type: application/json' \
+    -d '{"email":"admin@mitsgwalior.in","password":"wrong-password"}' >/dev/null
+done
+s=$(status -X POST "$API/auth/login" -H 'Content-Type: application/json' \
+  -d '{"email":"admin@mitsgwalior.in","password":"wrong-password"}')
+check "admin login throttled" 429 "$s"
+check "recorded against the admin portal" 10 "$($PSQL -c "SELECT count(*) FROM login_attempts WHERE portal='admin'")"
+$PSQL -c "DELETE FROM login_attempts;" >/dev/null
+s=$(status -X POST "$API/auth/login" -H 'Content-Type: application/json' \
+  -d '{"email":"admin@mitsgwalior.in","password":"iotify-dev-2026"}')
+check "admin can still sign in normally" 200 "$s"
 
 echo
 echo "──────────────────────────────────────────────────────────────────"

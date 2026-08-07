@@ -202,6 +202,27 @@ CREATE INDEX IF NOT EXISTS email_otps_lookup_idx
 CREATE INDEX IF NOT EXISTS email_otps_ip_idx
   ON email_otps (request_ip, created_at DESC);
 
+-- ── login_attempts ────────────────────────────────────────────────────
+-- Failed sign-ins, for throttling. scrypt makes each guess expensive, but
+-- expensive is not the same as limited: an attacker with a password list and
+-- patience gets unlimited tries against both portals without this.
+--
+-- Only failures are stored, and a successful sign-in clears the address's
+-- rows — so a student who mistypes twice and then gets in starts clean rather
+-- than carrying a budget around for the next quarter of an hour.
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  identifier TEXT        NOT NULL,
+  request_ip TEXT        NOT NULL DEFAULT '',
+  portal     TEXT        NOT NULL CHECK (portal IN ('admin', 'student')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS login_attempts_identifier_idx
+  ON login_attempts (identifier, created_at DESC);
+CREATE INDEX IF NOT EXISTS login_attempts_ip_idx
+  ON login_attempts (request_ip, created_at DESC);
+
 -- ── registrations → students ──────────────────────────────────────────
 -- Nullable and ON DELETE SET NULL on purpose. Registrations taken before
 -- accounts existed have no student, and a booking is a record of something

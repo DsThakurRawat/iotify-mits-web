@@ -223,10 +223,22 @@ Email proves ownership at signup and password reset only. It is deliberately
 not a per-login second factor: NIST does not accept email as an out-of-band
 channel, because the inbox is reachable from the same place the password is.
 
+### Sign-in throttling
+
+Both portals cap failed sign-ins: 10 per address and 50 per IP in a rolling 15
+minutes, tracked in `login_attempts`. Signing in successfully clears the
+address's failures. scrypt already makes each guess expensive, which is not the
+same as limiting how many guesses are available — the cost per attempt only
+decides how long a password list takes to work through.
+
+The per-IP limit matters separately: without it one host can spray a single
+common password across every address in the directory, each staying under its
+own cap.
+
 ### Tests
 
-`tests/student-auth.sh` and `tests/registration-linking.sh` cover all of the
-above against a running server. See `tests/README.md`.
+`tests/student-auth.sh` (43 checks) and `tests/registration-linking.sh` (12)
+cover all of the above against a running server. See `tests/README.md`.
 
 ## Known limits
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import Navbar from "./components/Navbar";
@@ -20,16 +20,21 @@ import developer from "./pages/devloper";
 import { Book } from "lucide-react";
 
 import { AuthProvider } from "./contexts/AuthContext";
-import AdminLayout from "./components/admin/AdminLayout";
-import AdminLogin from "./pages/admin/AdminLogin";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminWorkshops from "./pages/admin/AdminWorkshops";
-import AdminRegistrations from "./pages/admin/AdminRegistrations";
-import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
-import AdminExports from "./pages/admin/AdminExports";
-import AdminSettings from "./pages/admin/AdminSettings";
-import AdminActivityLogs from "./pages/admin/AdminActivityLogs";
 import { Toaster } from "react-hot-toast";
+import { WHATSAPP_GENERAL, whatsappLink } from "./lib/contact";
+
+// The admin portal is loaded on demand. Imported normally it lands in the main
+// bundle, so every visitor to the homepage downloads the charting and CSV
+// libraries used by screens only staff can reach.
+const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
+const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminWorkshops = lazy(() => import("./pages/admin/AdminWorkshops"));
+const AdminRegistrations = lazy(() => import("./pages/admin/AdminRegistrations"));
+const AdminAnnouncements = lazy(() => import("./pages/admin/AdminAnnouncements"));
+const AdminExports = lazy(() => import("./pages/admin/AdminExports"));
+const AdminSettings = lazy(() => import("./pages/admin/AdminSettings"));
+const AdminActivityLogs = lazy(() => import("./pages/admin/AdminActivityLogs"));
 
 const PAGE_TITLES = {
   home: "IoTily Lab — AI, IoT & Embedded Systems Innovation Lab",
@@ -272,6 +277,22 @@ function Loader({ onComplete, onNavigateHome }) {
   );
 }
 
+/**
+ * Shown while the admin bundle is fetched. Deliberately plain — it is on screen
+ * for a fraction of a second on a warm cache, and a spinner that flashes is
+ * more distracting than a still frame.
+ */
+function AdminChunkLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#07090E]">
+      <div className="flex items-center gap-3 text-slate-400 text-sm font-mono">
+        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+        Loading portal…
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState(pageFromLocation);
   const [isLoading, setIsLoading] = useState(
@@ -324,19 +345,21 @@ export default function App() {
         )}
 
         {isAdminRoute ? (
-          <AdminLayout currentPage={currentPage} onNavigate={navigate}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentPage}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -16 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <PageComponent onNavigate={navigate} />
-              </motion.div>
-            </AnimatePresence>
-          </AdminLayout>
+          <Suspense fallback={<AdminChunkLoading />}>
+            <AdminLayout currentPage={currentPage} onNavigate={navigate}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentPage}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <PageComponent onNavigate={navigate} />
+                </motion.div>
+              </AnimatePresence>
+            </AdminLayout>
+          </Suspense>
         ) : (
           <>
             <BackgroundField />
@@ -373,7 +396,7 @@ export default function App() {
                 </button>
 
                 <a
-                  href="https://wa.me/917999117324"
+                  href={whatsappLink(WHATSAPP_GENERAL)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-14 h-14 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(37,211,102,0.4)] hover:scale-110 transition-all duration-300"

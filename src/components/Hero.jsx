@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { ArrowRight, ChevronDown, Cpu, Zap, Eye, Radio } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import NeuralNetSVG from "./shared/NeuralNetSVG";
 
 const jetson = "https://res.cloudinary.com/dwumernfk/image/upload/v1785952346/jetson_gwza9h.png";
@@ -35,8 +35,6 @@ function TypewriterText() {
     </span>
   );
 }
-
-const floatingCards = [];
 
 export default function Hero({ onNavigate }) {
   const [isHovered, setIsHovered] = useState(false);

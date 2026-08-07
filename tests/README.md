@@ -36,7 +36,7 @@ DEV_LOG=/path/to/your.log ./tests/student-auth.sh
 
 ## What they cover
 
-`student-auth.sh` (34 checks)
+`student-auth.sh` (43 checks)
 
 - institute-domain allowlist, and malformed addresses
 - codes stored hashed, never in plaintext
@@ -45,7 +45,8 @@ DEV_LOG=/path/to/your.log ./tests/student-auth.sh
 - audience separation — a student token is refused by admin routes and vice versa
 - login, including case-insensitivity and wrong passwords
 - enumeration resistance: identical responses whether or not an account exists
-- all three rate limits — 3 codes/hour/address, 5 tries/code, 10 failures/24h
+- all three code rate limits — 3 codes/hour/address, 5 tries/code, 10 failures/24h
+- sign-in throttling on both portals, and that a success clears the budget
 
 `registration-linking.sh` (12 checks)
 

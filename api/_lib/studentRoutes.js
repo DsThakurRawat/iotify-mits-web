@@ -22,6 +22,11 @@ import {
 } from "./http.js";
 import { hashPassword, verifyPassword } from "./auth.js";
 import { assertEligibleEmail, consumeOtp, issueOtp, normalizeEmail } from "./otp.js";
+import {
+  assertLoginAllowed,
+  clearLoginFailures,
+  recordLoginFailure,
+} from "./loginThrottle.js";
 import { otpEmail, sendMail } from "./mailer.js";
 import {
   createStudentToken,
@@ -167,6 +172,9 @@ async function login(req, res) {
     throw badRequest("Email and password are required.");
   }
 
+  const ip = clientIp(req);
+  await assertLoginAllowed({ email, ip });
+
   const student = await findStudentByEmail(normalizeEmail(email));
 
   // Hash-compare even with no account, so a wrong address and a wrong password
@@ -175,7 +183,12 @@ async function login(req, res) {
     password,
     student?.password_hash ?? "scrypt$16384$8$1$AA==$AA=="
   );
-  if (!student || !ok) throw badRequest("Incorrect email or password.");
+  if (!student || !ok) {
+    await recordLoginFailure({ email, ip, portal: "student" });
+    throw badRequest("Incorrect email or password.");
+  }
+
+  await clearLoginFailures(email);
 
   const { password_hash, ...profile } = student;
   sendJson(res, 200, { token: createStudentToken(student), student: profile });

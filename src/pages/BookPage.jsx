@@ -10,6 +10,7 @@ import {
   CalendarX,
 } from "lucide-react";
 import { publicApi } from "../lib/api";
+import { WHATSAPP_BOOKINGS, whatsappLink } from "../lib/contact";
 import AnnouncementsBanner from "../components/AnnouncementsBanner";
 
 const EMPTY_FORM = {
@@ -665,7 +666,7 @@ export default function WorkshopEnrolment({ onNavigate }) {
         </button>
 
         <a
-          href="https://wa.me/917815809412"
+          href={whatsappLink(WHATSAPP_BOOKINGS)}
           target="_blank"
           rel="noreferrer"
           aria-label="WhatsApp"

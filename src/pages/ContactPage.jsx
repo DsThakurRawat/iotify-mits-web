@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { WHATSAPP_GENERAL, whatsappLink } from "../lib/contact";
 import {
   Mail, MapPin, Phone, Send, MessageSquare,
   ChevronDown, Users, FlaskConical, GraduationCap,
@@ -74,22 +75,16 @@ export default function ContactPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Replace with your actual WhatsApp phone number (with country code, e.g., 91 for India)
-    const whatsappNumber = "917510000000"; 
 
-    // Format message for WhatsApp
-    const text = encodeURIComponent(
-      `*New Inquiry from IoTily Lab Website*\n\n` +
+    const message =
+      `*New Inquiry from IoTify Lab Website*\n\n` +
       `*Name:* ${form.name}\n` +
       `*Email:* ${form.email}\n` +
       `*Subject:* ${form.subject || "General Inquiry"}\n\n` +
-      `*Message:* ${form.message}`
-    );
+      `*Message:* ${form.message}`;
 
-    // Open WhatsApp Chat with pre-filled message
-    window.open(`https://wa.me/${whatsappNumber}?text=${text}`, "_blank");
-    
+    window.open(whatsappLink(WHATSAPP_GENERAL, message), "_blank");
+
     setSent(true);
   };
 
