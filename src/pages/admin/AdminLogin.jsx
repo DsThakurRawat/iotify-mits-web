@@ -4,9 +4,10 @@ import { Eye, EyeOff, ArrowLeft, AlertTriangle, ShieldCheck } from "lucide-react
 import toast from "react-hot-toast";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button, Field, Input, Panel } from "../../components/admin/ui";
-import logo from "../../assets/images/logo1.png";
+
 
 export default function AdminLogin({ onNavigate }) {
+  const logo = "https://res.cloudinary.com/w1uqr8sy/image/upload/v1785951313/logo_mtsjp4.png";
   const { login, adminProfile, loading, authError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

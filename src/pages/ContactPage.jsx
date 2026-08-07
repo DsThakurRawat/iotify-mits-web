@@ -74,6 +74,22 @@ export default function ContactPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Replace with your actual WhatsApp phone number (with country code, e.g., 91 for India)
+    const whatsappNumber = "917510000000"; 
+
+    // Format message for WhatsApp
+    const text = encodeURIComponent(
+      `*New Inquiry from IoTily Lab Website*\n\n` +
+      `*Name:* ${form.name}\n` +
+      `*Email:* ${form.email}\n` +
+      `*Subject:* ${form.subject || "General Inquiry"}\n\n` +
+      `*Message:* ${form.message}`
+    );
+
+    // Open WhatsApp Chat with pre-filled message
+    window.open(`https://wa.me/${whatsappNumber}?text=${text}`, "_blank");
+    
     setSent(true);
   };
 
@@ -147,9 +163,8 @@ export default function ContactPage() {
       <section className="relative px-6 py-10 lg:py-16">
         <div className="mx-auto max-w-6xl grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-12">
 
-          {/* Left: info */}
+          {/* Left: info & Map */}
           <div className="flex flex-col gap-6">
-            {/* Contact cards */}
             {contactInfo.map((info, i) => {
               const Icon = info.icon;
               return (
@@ -173,34 +188,28 @@ export default function ContactPage() {
               );
             })}
 
-            {/* Map placeholder */}
+            {/* Live Google Map Embed */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.35 }}
               className="glass-card overflow-hidden rounded-2xl relative"
-              style={{ height: "240px" }}
+              style={{ height: "260px" }}
             >
-              {/* Map visual placeholder */}
-              <div className="absolute inset-0 circuit-bg opacity-60" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center border border-cyan-primary/40 bg-cyan-primary/[0.08]"
-                  style={{ boxShadow: "0 0 40px rgba(0,207,255,0.3)" }}
-                >
-                  <MapPin size={24} className="text-cyan-primary" />
-                </div>
-                <div className="text-center">
-                  <div className="font-display font-semibold text-white text-sm">IoTily Lab, MITS</div>
-                  <div className="text-muted text-xs mt-1">Gwalior, Madhya Pradesh</div>
-                </div>
-              </div>
-              {/* Animated ping */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className="w-24 h-24 rounded-full border border-cyan-primary/20 animate-ping" />
-              </div>
-              <CircuitSVG className="absolute inset-0 w-full h-full opacity-10" />
+              <iframe
+                title="MITS Gwalior Location Map"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3579.055877840134!2d78.2057!3d26.2218!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3976c6d05f530519%3A0x673024ba1659dc64!2sMadhav%20Institute%20of%20Technology%20and%20Science!5e0!3m2!1sen!2sin!4v1620000000000!5m2!1sen!2sin"
+                width="100%"
+                height="100%"
+                style={{ 
+                  border: 0, 
+                  filter: "invert(90%) hue-rotate(180deg) contrast(110%)" 
+                }}
+                allowFullScreen=""
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
             </motion.div>
           </div>
 
@@ -225,18 +234,18 @@ export default function ContactPage() {
                     <div className="w-20 h-20 rounded-full bg-cyan-primary/10 border border-cyan-primary/30 flex items-center justify-center mb-6 shadow-glow">
                       <Send size={32} className="text-cyan-primary" />
                     </div>
-                    <h3 className="font-display font-bold text-2xl text-white mb-3">Message Sent!</h3>
-                    <p className="text-muted text-sm max-w-xs">
-                      Thank you for reaching out. We'll get back to you within 24 hours.
+                    <h3 className="font-display font-bold text-2xl text-white mb-3">Redirecting to WhatsApp!</h3>
+                    <p className="text-muted text-sm max-w-xs mb-6">
+                      Your message has been formatted. If WhatsApp didn't open automatically, click below.
                     </p>
-                    <button onClick={() => setSent(false)} className="btn-glass mt-8 text-sm">
-                      Send Another
+                    <button onClick={() => setSent(false)} className="btn-glass text-sm">
+                      Send Another Message
                     </button>
                   </motion.div>
                 ) : (
                   <>
                     <h2 className="font-display font-bold text-2xl text-white mb-2">Send Us a Message</h2>
-                    <p className="text-muted text-sm mb-8">We read every message and respond promptly.</p>
+                    <p className="text-muted text-sm mb-8">Submit the form to connect directly via WhatsApp.</p>
 
                     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -273,11 +282,11 @@ export default function ContactPage() {
                           style={{ background: "rgba(255,255,255,0.04)" }}
                         >
                           <option value="" className="bg-[#090B11]">Select a topic</option>
-                          <option value="join" className="bg-[#090B11]">Join the Lab</option>
-                          <option value="collaboration" className="bg-[#090B11]">Research Collaboration</option>
-                          <option value="industry" className="bg-[#090B11]">Industry Project</option>
-                          <option value="internship" className="bg-[#090B11]">Internship</option>
-                          <option value="other" className="bg-[#090B11]">Other</option>
+                          <option value="Join the Lab" className="bg-[#090B11]">Join the Lab</option>
+                          <option value="Research Collaboration" className="bg-[#090B11]">Research Collaboration</option>
+                          <option value="Industry Project" className="bg-[#090B11]">Industry Project</option>
+                          <option value="Internship" className="bg-[#090B11]">Internship</option>
+                          <option value="Other" className="bg-[#090B11]">Other</option>
                         </select>
                       </div>
 
@@ -297,10 +306,10 @@ export default function ContactPage() {
                         type="submit"
                         whileHover={{ scale: 1.02, y: -1 }}
                         whileTap={{ scale: 0.98 }}
-                        className="btn-primary w-full py-4 text-base mt-2"
+                        className="btn-primary w-full py-4 text-base mt-2 flex items-center justify-center gap-2"
                       >
                         <Send size={16} />
-                        Send Message
+                        Send via WhatsApp
                       </motion.button>
                     </form>
                   </>

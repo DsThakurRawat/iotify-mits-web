@@ -12,15 +12,17 @@ import {
   Trophy,
   Globe,
 } from "lucide-react";
-import teamGroupImage from "../assets/images/timepass.jpeg";
+
+// Defined as a string constant to prevent ES module import errors
+const teamGroupImage = "https://res.cloudinary.com/dwumernfk/image/upload/v1785964187/image_2_wkozas.png";
 
 // Placeholder images for Client Kits
-const kit5 = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80";
-const kit6 = "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80";
-const kit7 = "https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?auto=format&fit=crop&w=800&q=80";
-const kit8 = "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=800&q=80";
-const kit9 = "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=800&q=80";
-const kit10 = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=80";
+const kit5 = "https://res.cloudinary.com/dwumernfk/image/upload/v1785959726/kit3-1_zfdued.png";
+const kit6 = "https://res.cloudinary.com/dwumernfk/image/upload/v1785958063/kit2-2_jhisgx.png";
+const kit7 = "https://res.cloudinary.com/dwumernfk/image/upload/v1785960452/kit1_ucw8t5.jpg";
+const kit8 = "https://res.cloudinary.com/dwumernfk/image/upload/v1785959728/kit3-2_gak5l5.png";
+const kit9 = "https://res.cloudinary.com/dwumernfk/image/upload/v1785958080/kit2-1_hue1gg.png";
+const kit10 = "https://res.cloudinary.com/dwumernfk/image/upload/v1785960464/kit14_wah76h.jpg";
 
 // --- DATA CONFIGURATIONS ---
 const OBJECTIVES = [
@@ -105,40 +107,40 @@ const CLIENT_SLIDES = [
 
 const TEAM_MEMBERS = [
   {
-    name: "Anvesh Reddy",
-    role: "CO-FOUNDER & CEO",
-    description: "Leads innovation in IoT and IoE with expertise in robotics, embedded systems, and Python.",
-    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80",
+    name: "Dr. Praveen Bansal",
+    role: "Head of Centre for IoT & Dean",
+    description: "Power Quality, Grid Connected Systems, Multilevel Inverters, IoT",
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1785521483/PIC_u3q9ur.png",
   },
   {
-    name: "Dr. Rajesh Kumar",
-    role: "FOUNDER & RESEARCH DIRECTOR",
-    description: "Pioneers edge computing architectures and AI sensor networks with over 15 published patent filings.",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80",
+    name: "Dr. Bhavna Rathore",
+    role: "Assistant Professor & coordinator",
+    description: "Impact of renewable energy source integration on power system stability",
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786084905/2681f153-4d9d-446e-8f19-9ca53806d352.png",
   },
   {
-    name: "Priya Sharma",
-    role: "CHIEF TECHNOLOGY OFFICER",
-    description: "Architects high-throughput IoT infrastructure and real-time telemetry systems for smart industrial applications.",
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80",
+    name: "Dr. Priyanka Garg",
+    role: "Assistant Professor & coordinator",
+    description: "Metamaterial-based microwave absorbers, antennas, sensors, IoT/Robotics.",
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786084923/20fc50ad-939a-4088-a2b5-b84004018612.png",
   },
   {
-    name: "Siddharth Varma",
-    role: "HEAD OF ROBOTICS & AUTOMATION",
-    description: "Specializes in ROS2 autonomous navigation, spatial AI computing, and precision hardware integration.",
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80",
+    name: "Dr. Dhananjay Bisen",
+    role: "Assistant Professor",
+    description: "Computer Programming, Data Science, Machine Learning, Deep Learning",
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786084949/bc2b0ae0-187a-4e8c-96be-44130ca0c5bd.png",
   },
   {
-    name: "Sneha Patil",
-    role: "AI & EDGE COMPUTING LEAD",
-    description: "Drives neural model quantization and computer vision deployments for microcontrollers and edge chips.",
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=800&q=80",
+    name: "Dr. Saurabh Kumar Rajput",
+    role: "Assistant Professor",
+    description: "Performance and Economic Analysis of Rooftop PV integrated Low Voltage Distribution Power System, Industrial Energy Auditing & Management.",
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786084875/ea970fb9-29af-419c-8c6e-b3ddaac1be79.png",
   },
   {
-    name: "Vikram Malhotra",
-    role: "HEAD OF HARDWARE & SYSTEMS",
-    description: "Expert in multi-layer PCB layout design, ultra-low power LoRaWAN mesh networks, and firmware security.",
-    image: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=800&q=80",
+    name: "Dr. Aftab Ahmed Ansari",
+    role: "Assistant Professor",
+    description: "Model Predictive Control, Grid Connected Systems, IoT",
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786084975/41ce9ec7-5084-41f1-8bb7-a6a482b70c0e.png",
   },
 ];
 
@@ -226,7 +228,7 @@ function Carousel({ items }) {
   );
 }
 
-// --- COMPONENT: TEAM CARD ---
+// --- COMPONENT: TEAM CARD (Full Color Images by Default) ---
 function TeamCard({ name, role, description, image, index = 0 }) {
   return (
     <motion.div
@@ -244,14 +246,14 @@ function TeamCard({ name, role, description, image, index = 0 }) {
       }}
       className="glass-card spotlight-card shimmer-card group p-0 overflow-hidden flex flex-col h-full"
     >
-      <div className="relative w-full aspect-[4/3] overflow-hidden bg-black/40">
+      <div className="relative w-full aspect-[4/3] overflow-hidden bg-[#07090D] flex items-center justify-center p-3">
         <img
           src={image}
           alt={name}
-          className="w-full h-full object-cover object-center grayscale group-hover:grayscale-0 scale-100 group-hover:scale-105 transition-all duration-700 ease-out"
+          className="w-full h-full object-contain object-center scale-100 group-hover:scale-105 transition-all duration-700 ease-out"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/95 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#050507]/90 via-transparent to-transparent pointer-events-none" />
         <div className="absolute -top-px -right-px w-16 h-16 rounded-tr-3xl bg-gradient-to-bl from-cyan-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       </div>
 
@@ -266,7 +268,7 @@ function TeamCard({ name, role, description, image, index = 0 }) {
   );
 }
 
-// --- SECTION 1: ABOUT SECTION WITH RIGHT-SIDE IMAGE ---
+// --- SECTION 1: ABOUT SECTION ---
 function AboutSection() {
   return (
     <section className="relative px-6 pt-10 pb-14 sm:pt-16 sm:pb-20 overflow-hidden">
@@ -283,11 +285,8 @@ function AboutSection() {
       />
  
       <div className="mx-auto max-w-6xl relative z-10 mt-24">
-
-        {/* HERO TEXT & IMAGE SPLIT GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-14 sm:mb-20">
           
-          {/* Left Column: Text Content */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -323,7 +322,6 @@ function AboutSection() {
             </p>
           </motion.div>
 
-          {/* Right Column: User Provided Image Card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             whileInView={{ opacity: 1, scale: 1, y: 0 }}
@@ -332,7 +330,6 @@ function AboutSection() {
             className="lg:col-span-5 relative"
           >
             <div className="glass-card spotlight-card p-3 rounded-3xl overflow-hidden border-cyan-primary/30 shadow-2xl relative group">
-              {/* Subtle background glow accent */}
               <div className="absolute inset-0 bg-gradient-to-tr from-cyan-primary/10 via-transparent to-transparent pointer-events-none" />
               
               <img
@@ -341,7 +338,6 @@ function AboutSection() {
                 className="w-full h-[340px] sm:h-[400px] object-cover rounded-2xl transform transition-transform duration-700 group-hover:scale-105"
               />
 
-              {/* Floating glass caption badge with glowing indicator matching reference */}
               <div className="absolute bottom-6 left-6 right-6 p-4 rounded-xl bg-black/85 backdrop-blur-md border border-cyan-primary/30 shadow-lg flex items-center gap-2.5">
                 <span className="w-2 h-2 rounded-full bg-cyan-primary animate-pulse" />
                 <p className="text-white text-xs sm:text-sm font-semibold tracking-wide">
@@ -349,14 +345,11 @@ function AboutSection() {
                 </p>
               </div>
 
-              {/* Corner tech accent */}
               <div className="absolute -top-px -right-px w-16 h-16 rounded-tr-3xl bg-gradient-to-bl from-cyan-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
             </div>
           </motion.div>
-
         </div>
 
-        {/* OBJECTIVES GRID */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -529,8 +522,8 @@ export default function AboutPage() {
     <main className="min-h-screen bg-black text-white selection:bg-cyan-primary selection:text-black font-body overflow-x-hidden">
       <style>{`
         .circuit-bg {
-          background-image: radial-gradient(rgba(0, 207, 255, 0.12) 1px, transparent 1px);
-          background-size: 28px 28px;
+          background-image: radial-gradient(rgba(0, 207, 255, 0.08) 1px, transparent 1px);
+          background-size: 16px 16px;
         }
         .eyebrow-badge {
           display: inline-flex;

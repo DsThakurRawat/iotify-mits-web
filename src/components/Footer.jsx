@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
-import { Linkedin, Twitter, Github, Mail, MapPin, Phone } from "lucide-react";
-import logo from "../assets/images/logo.png";
+import { Linkedin, Twitter, Github, Mail, MapPin } from "lucide-react";
+const logo = "https://res.cloudinary.com/w1uqr8sy/image/upload/v1785951313/logo_mtsjp4.png";
 
 const FOOTER_LINKS = {
-  Lab: ["About Us", "Research", "Projects", "Team", "Gallery"],
-  Research: ["AI Systems", "IoT & Embedded", "Computer Vision", "Robotics", "Industry 4.0"],
-  Connect: ["Contact Us", "Collaborate", "Internships", "Publications", "Events"],
+  Navigation: ["Home", "About us", "Gallery", "Book a Workshop"],
+  Ecosystem: ["IoTKIT", "Modules", "AboutIoT"],
+  Portal: ["developer", "Admin Login", "Contact Us"],
 };
 
 export default function Footer({ onNavigate }) {
@@ -14,18 +14,18 @@ export default function Footer({ onNavigate }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Only pages that actually exist — "research" and "team" had no page behind
-  // them and silently dumped visitors on the homepage.
+  // Map exact footer link text to component route keys
   const pageMap = {
-    "About Us": "about",
-    "Research": "projects",
-    "Projects": "projects",
-    "Team": "developer",
+    "Home": "home",
+    "About us": "about",
+    "IoTKIT": "iotkit",
+    "Modules": "modules",
+    "AboutIoT": "aboutiot",
     "Gallery": "gallery",
-    "Contact Us": "contact",
-    "Collaborate": "contact",
-    "Internships": "contact",
     "Book a Workshop": "book",
+    "developer": "developer",
+    "Admin Login": "admin",
+    "Contact Us": "contact",
   };
 
   return (
@@ -47,16 +47,19 @@ export default function Footer({ onNavigate }) {
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
             >
-              <button onClick={() => handleNav("home")} className="flex items-center gap-2.5 mb-6 group">
+              <button onClick={() => handleNav("home")} className="flex items-center gap-3 mb-6 group">
                 <img
                   src={logo}
                   alt="IoTily Lab"
-                  className="h-8 w-auto object-contain"
+                  className="h-12 w-auto object-contain"
                   style={{
                     mixBlendMode: "screen",
-                    filter: "drop-shadow(0 0 6px rgba(0,207,255,0.35))",
+                    filter: "drop-shadow(0 0 8px rgba(0,207,255,0.45))",
                   }}
                 />
+                <span className="font-display font-bold text-white text-lg tracking-wider group-hover:text-cyan-primary transition-colors">
+                  IoTify Lab
+                </span>
               </button>
 
               <p className="text-muted text-sm leading-relaxed max-w-xs mb-6">
@@ -125,7 +128,7 @@ export default function Footer({ onNavigate }) {
 
           {/* Bottom bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-white/[0.06] text-xs text-muted">
-            <span>© {new Date().getFullYear()} IoTily Lab, MITS. All rights reserved.</span>
+            <span>© {new Date().getFullYear()} IoTify Lab, MITS. All rights reserved.</span>
             <div className="flex items-center gap-6">
               <span className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-slow" />

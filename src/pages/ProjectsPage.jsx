@@ -5,7 +5,8 @@ import {
   CheckCircle2, 
   Clock, 
   Users, 
-  Sparkles
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
 
 const trainingModules = [
@@ -142,8 +143,15 @@ const financialModels = [
   }
 ];
 
-export default function TrainingAndFinancialModels() {
+export default function TrainingAndFinancialModels({ onNavigate }) {
   const [activeTab, setActiveTab] = useState('training');
+
+  const handleBookClick = () => {
+    if (onNavigate) {
+      onNavigate('book');
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   return (
     <section className="text-gray-100 py-16 px-4 sm:px-6 lg:px-8 relative font-sans">
@@ -206,6 +214,7 @@ export default function TrainingAndFinancialModels() {
                     <th className="py-4 px-6 font-bold">Duration</th>
                     <th className="py-4 px-6 font-bold">Major Activities</th>
                     <th className="py-4 px-6 font-bold">Expected Deliverables</th>
+                    <th className="py-4 px-6 font-bold text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cyan-500/10 text-sm text-gray-300">
@@ -236,6 +245,15 @@ export default function TrainingAndFinancialModels() {
                           <span>{item.deliverables}</span>
                         </div>
                       </td>
+                      <td className="py-4 px-6 text-right whitespace-nowrap">
+                        <button
+                          onClick={handleBookClick}
+                          className="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-semibold transition-all inline-flex items-center gap-1.5 group/btn shadow-[0_0_10px_rgba(6,182,212,0.1)] hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                        >
+                          <span>Book</span>
+                          <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-0.5" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -258,6 +276,7 @@ export default function TrainingAndFinancialModels() {
                       <th className="py-4 px-6 font-bold">Proposed Fee / Contribution</th>
                       <th className="py-4 px-6 font-bold">Proposed Payment Mechanism</th>
                       <th className="py-4 px-6 font-bold text-center">Modules Cover</th>
+                      <th className="py-4 px-6 font-bold text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-cyan-500/10 text-sm text-gray-300">
@@ -271,6 +290,15 @@ export default function TrainingAndFinancialModels() {
                           <span className="inline-block px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 text-xs font-semibold font-mono">
                             {item.modules}
                           </span>
+                        </td>
+                        <td className="py-4 px-6 text-right whitespace-nowrap">
+                          <button
+                            onClick={handleBookClick}
+                            className="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-semibold transition-all inline-flex items-center gap-1.5 group/btn shadow-[0_0_10px_rgba(6,182,212,0.1)] hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                          >
+                            <span>Book</span>
+                            <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-0.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}

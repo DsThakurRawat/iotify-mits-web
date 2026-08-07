@@ -68,11 +68,11 @@ export default function CTASection({ onNavigate }) {
 
           {/* Contact Page Link */}
           <button
-            onClick={() => onNavigate && onNavigate("contact")}
+            onClick={() => onNavigate && onNavigate("book")}
             className="btn-glass text-sm sm:text-base font-semibold px-8 py-4 flex items-center gap-3 border border-white/20 hover:border-cyan-primary/50"
           >
             <GraduationCap size={18} className="text-cyan-primary" />
-            <span>Request School Workshop</span>
+            <span>Book a workshops</span>
           </button>
         </motion.div>
       </div>

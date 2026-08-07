@@ -1,14 +1,15 @@
 import { motion } from "framer-motion";
 import { CheckCircle2, ShieldCheck } from "lucide-react";
-import logo from "./timepass.jpeg"; // Update this path to match your image import or use your actual image path
+
+const logo = "https://res.cloudinary.com/dwumernfk/image/upload/v1785964187/image_2_wkozas.png";
 
 const tickerItems = [
   "25,000+ Students",
   "CSR-Ready Labs",
   "IoRT + AI Systems",
-  "ATL Compatible Kits",
+  "AIoT Compatible Kits",
   "Teacher Certification",
-  "IIT Programs Delivered",
+  "MITS Student connect Programs ",
   "Hands-on IoT Workshops",
   "MITS Gwalior Initiative"
 ];
@@ -62,12 +63,12 @@ export default function CompanyAbout() {
             <div className="relative rounded-3xl p-2 bg-gradient-to-b from-cyan-500/20 via-white/[0.04] to-transparent border border-white/10 shadow-2xl overflow-hidden group">
               <div className="absolute inset-0 bg-cyan-500/5 blur-3xl pointer-events-none" />
               
-              <div className="relative rounded-2xl overflow-hidden bg-[#07090E] aspect-[4/3] flex items-center justify-center border border-white/[0.06]">
-                {/* Full container width and height image fill */}
+              <div className="relative rounded-2xl overflow-hidden bg-[#07090E] aspect-[4/3] flex items-center justify-center border border-white/[0.06] p-4">
+                {/* Fixed import syntax and changed object-cover to object-contain for full image visibility */}
                 <img
                   src={logo} 
                   alt="IoTify Lab Showcase"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
                 />
 
                 {/* Floating Badge Overlay */}

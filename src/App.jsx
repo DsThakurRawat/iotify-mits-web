@@ -4,8 +4,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import BackgroundField from "./components/BackgroundField";
-import logo from "./assets/images/logo1.png";
-import loaderVideo from "./assets/images/loader1.mp4";
+
+// Updated loaderVideo to use the optimized Cloudinary URL
+const loaderVideo = "https://res.cloudinary.com/w1uqr8sy/video/upload/q_auto,f_auto/v1785951309/loader1_san3kv.mp4";
 
 import HomePage from "./pages/HomePage";
 import AboutPage from "./pages/AboutPage";
@@ -73,9 +74,6 @@ const PAGES = {
 };
 
 // ── URL routing ────────────────────────────────────────────────
-// The app renders one page at a time from state. These maps keep the address
-// bar in sync so /admin is reachable directly, deep links work, and the
-// browser back button behaves.
 const PATH_TO_PAGE = {
   "/": "home",
   "/about": "about",
@@ -115,7 +113,7 @@ function Loader({ onComplete, onNavigateHome }) {
   useEffect(() => {
     let timer;
     const duration = 6000; // 6.0 seconds loading duration
-    const intervalTime = 50; // Smooth progress updates (20 times per second)
+    const intervalTime = 50; 
     const totalSteps = duration / intervalTime;
     let currentStep = 0;
 
@@ -202,11 +200,7 @@ function Loader({ onComplete, onNavigateHome }) {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="flex flex-col items-center gap-5 mt-4"
             >
-              <img
-                src={logo}
-                alt="IoTify Logo"
-                className="w-12 h-12 object-contain drop-shadow-[0_0_15px_rgba(0,184,255,0.45)]"
-              />
+
 
               {/* Enhanced Interactive MITS - DU School C Program Button */}
               <motion.button
@@ -215,22 +209,18 @@ function Loader({ onComplete, onNavigateHome }) {
                 whileTap={{ scale: 0.97 }}
                 className="group relative inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-[#0B0B0F] to-blue-950/40 border border-cyan-500/40 shadow-[0_0_30px_rgba(0,184,255,0.2)] hover:shadow-[0_0_50px_rgba(0,184,255,0.4)] hover:border-cyan-400 transition-all duration-300 cursor-pointer overflow-hidden"
               >
-                {/* Ambient background glow sweep on hover */}
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-blue-500/15 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 
-                {/* Vibrant gradient text */}
                 <span className="relative z-10 font-display font-black text-lg md:text-xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-cyan-400 to-blue-400 tracking-wide drop-shadow-[0_2px_15px_rgba(0,184,255,0.4)]">
-                  MITS - DU School C? Program
+                  MITS School Connect Program
                 </span>
 
-                {/* Interactive Arrow Icon */}
                 <span className="relative z-10 flex items-center justify-center w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 group-hover:bg-cyan-400 group-hover:text-black group-hover:shadow-[0_0_15px_rgba(0,229,255,0.8)] transition-all duration-300">
                   <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                   </svg>
                 </span>
 
-                {/* Glowing borders */}
                 <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
                 <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent scale-x-50 group-hover:scale-x-100 transition-transform duration-500" />
               </motion.button>
@@ -284,14 +274,10 @@ function Loader({ onComplete, onNavigateHome }) {
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState(pageFromLocation);
-  // Skip the 6s cinematic loader for the admin portal — staff open it dozens
-  // of times a day.
   const [isLoading, setIsLoading] = useState(
     () => !pageFromLocation().startsWith("admin-")
   );
 
-  // Stable identity — several admin screens list `onNavigate` in effect deps,
-  // and a fresh function each render would re-run those effects constantly.
   const navigate = useCallback((page) => {
     const target = PAGES[page] ? page : "home";
     setCurrentPage(target);
@@ -302,7 +288,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Browser back / forward buttons.
   useEffect(() => {
     const onPopState = () => setCurrentPage(pageFromLocation());
     window.addEventListener("popstate", onPopState);
@@ -314,7 +299,6 @@ export default function App() {
   }, [currentPage]);
 
   const PageComponent = PAGES[currentPage] || PAGES.home;
-
   const isAdminRoute = currentPage.startsWith("admin-");
 
   return (
@@ -328,7 +312,7 @@ export default function App() {
             border: '1px solid rgba(255,255,255,0.1)'
           }
         }} />
-        {/* Cinematic Loader overlay with instant MITS navigation link */}
+        
         {isLoading && (
           <Loader
             onComplete={() => setIsLoading(false)}
@@ -355,13 +339,10 @@ export default function App() {
           </AdminLayout>
         ) : (
           <>
-            {/* Background: pure black + dot grid + teal glow */}
             <BackgroundField />
 
-            {/* Navbar (Hidden until loading completes) */}
             {!isLoading && <Navbar currentPage={currentPage} onNavigate={navigate} />}
 
-            {/* Page content */}
             <main className="relative z-10">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -376,21 +357,19 @@ export default function App() {
               </AnimatePresence>
             </main>
 
-            {/* Footer (Hidden until loading completes) */}
             {!isLoading && (
               <div className="relative z-10">
                 <Footer onNavigate={navigate} />
               </div>
             )}
 
-            {/* Global Floating Widgets */}
             {!isLoading && (
               <div className="fixed bottom-6 right-6 z-[99999] flex flex-col items-end gap-3 pointer-events-auto">
                 <button
                   className="flex items-center gap-2 px-4 py-2.5 bg-black/80 border border-cyan-400/50 rounded-full text-cyan-200 font-medium text-sm shadow-[0_0_20px_rgba(0,184,255,0.25)] hover:shadow-[0_0_30px_rgba(0,184,255,0.5)] transition-all duration-300 backdrop-blur-md cursor-pointer"
                 >
                   <span className="text-cyan-400">✦</span>
-                  <span>Ask ARC AI</span>
+                  <span>Iotify Lab</span>
                 </button>
 
                 <a

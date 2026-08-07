@@ -1,38 +1,34 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import kit1 from "../../assets/images/kit1.jpeg";
-import kit2 from "../../assets/images/kit2.jpeg";
-import kit3 from "../../assets/images/kit3.jpeg";
-import kit4 from "../../assets/images/kit4.jpeg";
 
 const PRODUCTS = [
   {
-    image: kit1,
-    category: "In-House IoT Kit",
-    title: "CIoT Sensor Explorer Kit",
-    desc: "Modular sensor learning suite developed at MITS with ESP32 microcontrollers, OLED displays, and real-time sensor nodes.",
-    specs: ["ESP32-WROOM", "10+ Sensor Nodes", "Breadboard Interface"],
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786096718/k4-3_kqfqiw.png",
+    category: "Smart Attendance",
+    title: "IoT Smart Attendance System",
+    desc: "A Raspberry Pi 4 based IoT Smart Attendance System that enables automated attendance management using RFID authentication, motion detection, and real-time data processing.",
+    specs: ["Raspberry Pi 4", "RFID Reader", "Touchscreen Display"],
   },
   {
-    image: kit2,
-    category: "Edge AI Module",
-    title: "CIoT Edge AI Suite",
-    desc: "Camera-enabled computer vision and neural inference kit designed for school & undergraduate AI lab experiments.",
-    specs: ["Camera Module", "Edge Vision", "MicroPython AI"],
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1785959728/kit3-2_gak5l5.png",
+    category: "Communication",
+    title: "IoT Communication Kit – Transmitter",
+    desc: "A comprehensive wireless communication development kit designed for learning and prototyping IoT communication systems.",
+    specs: ["Arduino UNO", "ESP32", "LoRa SX1278", "GSM"],
   },
   {
-    image: kit3,
-    category: "Robotics Platform",
-    title: "CIoT Autonomous Rover",
-    desc: "Mobile robotics platform engineered for obstacle avoidance, ultrasonic distance sensing, and motor driver control.",
-    specs: ["Distance Sensors", "DC Motor Chassis", "Bluetooth Control"],
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786096718/k5-3_vzglzk.png",
+    category: "Edge AI",
+    title: "IoT Wildlife Animal Detection Kit",
+    desc: "An advanced AI-powered IoT development kit designed for real-time wildlife animal detection and monitoring using Raspberry Pi 5.",
+    specs: ["Raspberry Pi 5", "Camera Module", "GPS Module"],
   },
   {
-    image: kit4,
-    category: "Embedded Systems",
-    title: "CIoT Telemetry & Mesh Kit",
-    desc: "Wireless sensor communication kit for environmental telemetry, LoRaWAN mesh experiments, and firmware programming.",
-    specs: ["LoRa 868MHz", "Environment Sensors", "Low Power"],
+    image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786096720/k6-3_xzw4e7.png",
+    category: "Innovation",
+    title: "IoT Innovator Kit",
+    desc: "A comprehensive IoT learning and prototyping kit featuring Raspberry Pi Pico and ESP32 with a wide range of sensors and displays.",
+    specs: ["Raspberry Pi Pico", "ESP32", "OLED Display"],
   },
 ];
 
@@ -73,7 +69,7 @@ export default function HardwareSection({ onNavigate }) {
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            onClick={() => onNavigate && onNavigate("research")}
+            onClick={() => onNavigate && onNavigate("iotkit")}
             className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-white/[0.03] border border-cyan-primary/30 hover:border-cyan-primary text-white hover:text-cyan-primary font-body font-semibold text-sm transition-all duration-300 shadow-[0_0_20px_rgba(0,207,255,0.15)] self-start md:self-auto"
           >
             Explore Kits & Modules

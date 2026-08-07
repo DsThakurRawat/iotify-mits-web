@@ -1,20 +1,13 @@
 import React from "react";
 import { motion } from "framer-motion";
 import {
-  ExternalLink,
   GraduationCap,
-  Award,
-  Briefcase,
   Users,
   Code,
   Mail,
   Github,
   Linkedin,
 } from "lucide-react";
-
-import profileImg from "../assets/images/jetson.png"; // Replace with developer profile photo
-import guide1 from "../assets/images/kit1.jpeg"; // Replace with guide 1 photo
-import guide2 from "../assets/images/kit2.jpeg"; // Replace with guide 2 photo
 
 /* ==========================================================================
    DEVELOPER PAGE COMPONENT
@@ -25,89 +18,39 @@ export default function DeveloperPage() {
     {
       name: "Yatharth Gupta",
       role: "Full Stack & IoT Developer",
-      dept: "Artificial Intelligence & Data Science",
+      dept: "Internet of Things",
       cgpa: "9.2/10",
       enrolment: "0901AD2310xx",
-      github: "itsYatharthGupta",
-      linkedin: "itsYatharthGupta",
-      email: "yatharth@mitsgwi.ac.in",
+      github: "https://github.com/Yatharth06-yat",
+      linkedin: "https://www.linkedin.com/in/your-profile",
+      email: "guptayatharth353@gmail.com",
+      image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786103104/yatharth_xbbomx.jpg",
     },
     {
       name: "Divyansh Rajput",
       role: "Embedded Systems & AI Engineer",
-      dept: "Artificial Intelligence & Data Science",
+      dept: "Internet of Things",
       cgpa: "9.4/10",
       enrolment: "0901AD2310xx",
-      github: "itsDivyanshRajput",
-      linkedin: "itsDivyanshRajput",
+      github: "https://github.com",
+      linkedin: "https://www.linkedin.com",
       email: "divyansh@mitsgwi.ac.in",
+      image: "https://res.cloudinary.com/dwumernfk/image/upload/v1786103641/7629444f-303c-4176-b2ab-3506ec8d4d60.png",
     },
-  ];
-
-  const internships = [
-    {
-      company: "Infosys Springboard",
-      role: "Java Web Technology Intern",
-      period: "Oct - Dec 2024",
-      desc: "Developed a Sports Performance Monitoring system with Spring Boot and React.",
-      link: "#",
-    },
-    {
-      company: "TechSaksham",
-      role: "AI Intern (Microsoft, SAP, AICTE)",
-      period: "Nov - Dec 2024",
-      desc: "Built an Attendance Management System using face recognition technology.",
-      link: "#",
-    },
-    {
-      company: "Connecting Dreams Foundation",
-      role: "Blockchain Intern (VOIS and VI)",
-      period: "Jan - Feb 2025",
-      desc: "Developed Smart Contracts and DApps including Land Registry blockchain solution.",
-      link: "#",
-    },
-    {
-      company: "Edunet Foundation",
-      role: "Cybersecurity Intern (IBM SkillsBuild)",
-      period: "Jan - Mar 2025",
-      desc: "Worked on security solutions including IDS and Steganography web application.",
-      link: "#",
-    },
-    {
-      company: "Edunet Foundation",
-      role: "Full Stack Web Development (EY GDS & AICTE)",
-      period: "Jan - Mar 2025",
-      desc: "Building full-stack web applications using MERN stack technologies including Project Management solutions.",
-      link: "#",
-    },
-    {
-      company: "Shell & Edunet Foundation",
-      role: "AI with Green Technology (AICTE CSR)",
-      period: "Feb - Mar 2025",
-      desc: "Implementation of Chatbot using Natural Language Processing (NLP) technologies.",
-      link: "#",
-    },
-  ];
-
-  const keyAchievements = [
-    "Co-developed this entire IoTify Lab platform from scratch",
-    "Engineered core modules for smart campus deployment and hardware integration",
-    "Multiple high-impact industry internships across AI, Web, and Cloud",
-    "Consistent academic excellence at MITS, Gwalior",
-    "Active contributors to institutional technical clubs and R&D projects",
-    "Certificates from recognized global technology programs",
   ];
 
   const guides = [
     {
-      name: "Dr. Dhananjay Bisen",
-      title: "Faculty Advisor / Professor, MITS Gwalior",
-      img: guide1,
+      name: "Dr. Praveen Bansal",
+      title: "Head of Centre for IoT & Dean",
+      description: "Power Quality, Grid Connected Systems, Multilevel Inverters, IoT",
+      img: "https://res.cloudinary.com/dwumernfk/image/upload/v1785521483/PIC_u3q9ur.png",
     },
     {
-      name: "Praveen Bansal",
-      title: "Technical Mentor & Lab Coordinator, MITS Gwalior",
-      img: guide2,
+      name: "Dr. Dhananjay Bisen",
+      title: "Assistant Professor",
+      description: "Computer Programming, Data Science, Machine Learning, Deep Learning",
+      img: "https://res.cloudinary.com/dwumernfk/image/upload/v1786084949/bc2b0ae0-187a-4e8c-96be-44130ca0c5bd.png",
     },
   ];
 
@@ -133,7 +76,7 @@ export default function DeveloperPage() {
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-cyan-primary/30 bg-cyan-primary/[0.06] text-cyan-bright font-display text-xs tracking-wider uppercase">
             <Code size={14} className="text-cyan-primary" />
-            Developed Under Software Development Club, MITS-DU
+            Developed Under Centre for Internet of Things, MITS-DU
           </div>
         </motion.div>
 
@@ -153,7 +96,7 @@ export default function DeveloperPage() {
                 <div className="relative mb-6">
                   <div className="w-28 h-28 rounded-full overflow-hidden p-1 border-2 border-cyan-primary/40 bg-cyan-primary/10 shadow-[0_0_20px_rgba(0,207,255,0.2)]">
                     <img
-                      src={profileImg}
+                      src={dev.image}
                       alt={dev.name}
                       className="w-full h-full object-cover rounded-full"
                     />
@@ -173,7 +116,7 @@ export default function DeveloperPage() {
                 {/* Social Links */}
                 <div className="flex flex-wrap items-center justify-center gap-2.5">
                   <a
-                    href="https://github.com"
+                    href={dev.github}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:border-cyan-primary/40 text-xs text-white font-display transition-colors"
@@ -182,7 +125,7 @@ export default function DeveloperPage() {
                     GitHub
                   </a>
                   <a
-                    href="https://linkedin.com"
+                    href={dev.linkedin}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:border-cyan-primary/40 text-xs text-white font-display transition-colors"
@@ -203,121 +146,37 @@ export default function DeveloperPage() {
           ))}
         </div>
 
-        {/* TWO COLUMN GRID: Education & Key Achievements */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          
-          {/* Education Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="glass-card p-8 rounded-3xl border border-white/[0.08] flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-cyan-primary/10 border border-cyan-primary/20 flex items-center justify-center text-cyan-primary">
-                  <GraduationCap size={20} />
-                </div>
-                <h2 className="font-display font-bold text-xl text-white">
-                  Education
-                </h2>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="font-display font-bold text-white text-base">
-                  Madhav Institute of Technology & Science, Gwalior
-                </h3>
-                <p className="text-cyan-bright font-display text-sm font-medium">
-                  B.Tech in Artificial Intelligence & Data Science
-                </p>
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted font-mono pt-2">
-                  <span>📅 Aug 2023 - Jun 2027</span>
-                  <span>⭐ Top Tier CGPA</span>
-                </div>
-                <div className="text-xs text-muted font-body pt-1">
-                  Department: Centre for Artificial Intelligence & IoTify Lab
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Key Achievements Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="glass-card p-8 rounded-3xl border border-white/[0.08] flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-cyan-primary/10 border border-cyan-primary/20 flex items-center justify-center text-cyan-primary">
-                  <Award size={20} />
-                </div>
-                <h2 className="font-display font-bold text-xl text-white">
-                  Key Achievements
-                </h2>
-              </div>
-
-              <ul className="space-y-3">
-                {keyAchievements.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-sm text-muted">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-primary mt-2 flex-shrink-0 shadow-[0_0_8px_rgba(0,207,255,0.8)]" />
-                    <span className="leading-relaxed">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* INTERNSHIPS SECTION */}
+        {/* EDUCATION SECTION */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="glass-card p-8 sm:p-10 rounded-3xl border border-white/[0.08]"
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="glass-card p-8 rounded-3xl border border-white/[0.08]"
         >
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-cyan-primary/10 border border-cyan-primary/20 flex items-center justify-center text-cyan-primary">
-              <Briefcase size={20} />
+              <GraduationCap size={20} />
             </div>
-            <h2 className="font-display font-bold text-2xl text-white">
-              Internships & Training
+            <h2 className="font-display font-bold text-xl text-white">
+              Education
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {internships.map((intern, i) => (
-              <div
-                key={i}
-                className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-cyan-primary/30 transition-all duration-300 flex flex-col justify-between group"
-              >
-                <div>
-                  <h3 className="font-display font-bold text-white text-base group-hover:text-cyan-bright transition-colors mb-2">
-                    {intern.company}
-                  </h3>
-                  <p className="text-cyan-primary font-display text-xs font-medium mb-3">
-                    {intern.role}
-                  </p>
-                  <p className="text-muted text-xs font-mono mb-4 px-2.5 py-1 rounded-md bg-white/[0.03] inline-block border border-white/5">
-                    {intern.period}
-                  </p>
-                  <p className="text-muted text-xs leading-relaxed mb-6">
-                    {intern.desc}
-                  </p>
-                </div>
-
-                <a
-                  href={intern.link}
-                  className="inline-flex items-center gap-1.5 text-xs font-display font-bold text-cyan-primary hover:text-cyan-bright transition-colors"
-                >
-                  View Details <ExternalLink size={13} />
-                </a>
-              </div>
-            ))}
+          <div className="space-y-4">
+            <h3 className="font-display font-bold text-white text-base">
+              Madhav Institute of Technology & Science, Gwalior
+            </h3>
+            <p className="text-cyan-bright font-display text-sm font-medium">
+              B.Tech in Internet of Things (IoT)
+            </p>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted font-mono pt-2">
+              <span>📅 Aug 2024 - Jun 2028</span>
+              
+            </div>
+            <div className="text-xs text-muted font-body pt-1">
+              Department: Centre for Internet of Things (CIoT), MITS Gwalior
+            </div>
           </div>
         </motion.div>
 
@@ -354,8 +213,11 @@ export default function DeveloperPage() {
                 <h3 className="font-display font-bold text-white text-base mb-1 group-hover:text-cyan-bright transition-colors">
                   {guide.name}
                 </h3>
-                <p className="text-muted text-xs leading-relaxed">
+                <p className="text-cyan-primary font-display text-xs font-medium mb-1">
                   {guide.title}
+                </p>
+                <p className="text-muted text-xs leading-relaxed">
+                  {guide.description}
                 </p>
               </div>
             ))}
