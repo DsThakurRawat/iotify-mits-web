@@ -14,17 +14,19 @@ export default function Footer({ onNavigate }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Map exact footer link text to component route keys
+  // Map exact footer link text to component route keys. These must match the
+  // keys in App.jsx's PAGES map — an unknown key falls through to the homepage
+  // with no error, so a typo here reads as a dead link.
   const pageMap = {
     "Home": "home",
     "About us": "about",
     "IoTKIT": "iotkit",
-    "Modules": "modules",
-    "AboutIoT": "aboutiot",
+    "Modules": "projects",
+    "AboutIoT": "Iot",
     "Gallery": "gallery",
     "Book a Workshop": "book",
     "developer": "developer",
-    "Admin Login": "admin",
+    "Admin Login": "admin-login",
     "Contact Us": "contact",
   };
 
