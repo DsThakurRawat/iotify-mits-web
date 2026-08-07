@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "db:migrate": "node scripts/migrate.js",
-    "db:create-admin": "node scripts/create-admin.js"
+    "db:create-admin": "node scripts/create-admin.js",
+    "db:seed-demo": "node scripts/seed-demo.js"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
